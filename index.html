@@ -38,7 +38,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 /* ---------- PROJECT VIEW ---------- */
 #project{display:none;height:100vh}
 #project.open{display:flex}
-.sidebar{width:300px;min-width:300px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sidebar{width:var(--sidew,300px);min-width:var(--sidew,300px);background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
 .side-head{padding:16px;border-bottom:1px solid var(--border)}
 .side-head .backrow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .side-head h2{font-size:1.05rem;color:#fff;flex:1;word-break:break-word}
@@ -154,7 +154,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 
 @media (max-width:720px){
   #project.open{flex-direction:column}
-  .sidebar{width:100%;min-width:0;max-height:45vh}
+  .sidebar{width:100%!important;min-width:0!important;max-height:45vh}
 }
 </style>
 </head>
@@ -265,6 +265,11 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <div class="color-row"><label>Muted text</label><input type="color" data-k="muted"></div>
     <div class="color-row"><label>Accent</label><input type="color" data-k="accent"></div>
     <div class="color-row"><label>Borders</label><input type="color" data-k="border"></div>
+    <div class="color-row" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+      <label>Sidebar width <span id="sidewVal" style="color:var(--muted)"></span></label>
+      <input type="range" id="sidewRange" min="200" max="560" step="10" style="width:160px">
+      <button class="btn small" onclick="resetSidew()" title="Reset to default">↺</button>
+    </div>
     <div class="modal-actions">
       <button class="btn primary" onclick="closeModal('themeModal')">Done</button>
     </div>
@@ -489,6 +494,7 @@ function closeProject(){
 function applyTheme(t){
   const r=document.documentElement.style;
   for(const k of['bg','panel','content','text','muted','accent','border'])r.setProperty('--'+k,t[k]);
+  r.setProperty('--sidew',(t.sidew||300)+'px');
 }
 function touch(){const p=proj();if(p)p.updated=Date.now();save();}
 
@@ -836,6 +842,26 @@ function edBlock(text){
   ta.setSelectionRange(p,p);
   edRefreshPreview();
 }
+/* wrap the current selection in a code container (fenced block in MD, <pre><code> in HTML) */
+function edCode(){
+  const ta=edArea(),s=ta.selectionStart,e=ta.selectionEnd,v=ta.value;
+  const sel=v.slice(s,e)||'code here';
+  let ins;
+  if(editingFormat==='md'){
+    const pre=(s>0&&v[s-1]!=='\n')?'\n':'';
+    const post=(v[e]&&v[e]!=='\n')?'\n':'';
+    ins=pre+'```\n'+sel.replace(/\n+$/,'')+'\n```'+post;
+  }else{
+    // escape so the code is displayed literally, with formatting preserved
+    const escd=sel.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    ins='<pre><code>'+escd+'</code></pre>';
+  }
+  ta.value=v.slice(0,s)+ins+v.slice(e);
+  ta.focus();
+  const p=s+ins.length;
+  ta.setSelectionRange(p,p);
+  edRefreshPreview();
+}
 const HTML_BOILERPLATE=`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -879,7 +905,7 @@ function renderToolbar(){
     btn('🔗','Link',()=>edWrap('[','](https://example.com)','link text'));
     btn('🖼','Image',()=>edBlock('![description](https://example.com/image.jpg)'));
     btn('❝','Quote',()=>edLine('> ','Quote'));
-    btn('{ }','Code block',()=>edBlock('```\ncode here\n```'));
+    btn('{ }','Code block — select code first to wrap it',()=>edCode());
     btn('▦ Table','Table',()=>edBlock('| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell | Cell | Cell |\n| Cell | Cell | Cell |'));
     btn('─','Divider',()=>edBlock('---'));
   }else{
@@ -908,7 +934,7 @@ function renderToolbar(){
     btn('🔗','Link',()=>edWrap('<a href="https://example.com" target="_blank">','</a>','link text'));
     btn('🖼','Image',()=>edBlock('<img src="https://example.com/image.jpg" alt="description" style="max-width:100%">'));
     btn('❝','Quote',()=>edWrap('<blockquote>','</blockquote>','Quote'));
-    btn('{ }','Code block',()=>edWrap('<pre><code>','</code></pre>','code here'));
+    btn('{ }','Code block — select code first to wrap it (special characters are escaped)',()=>edCode());
     btn('▦ Table','Table',()=>edBlock('<table border="1" cellpadding="6" style="border-collapse:collapse">\n  <thead>\n    <tr><th>Column 1</th><th>Column 2</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>Cell</td><td>Cell</td></tr>\n    <tr><td>Cell</td><td>Cell</td></tr>\n  </tbody>\n</table>'));
     btn('─','Divider',()=>edBlock('<hr>'));
   }
@@ -975,6 +1001,10 @@ function openTheme(){
     inp.value=t[inp.dataset.k];
     inp.oninput=()=>{t[inp.dataset.k]=inp.value;applyTheme(t);touch();renderHubSilently();};
   });
+  const rng=document.getElementById('sidewRange'),val=document.getElementById('sidewVal');
+  rng.value=t.sidew||300;
+  val.textContent=(t.sidew||300)+'px';
+  rng.oninput=()=>{t.sidew=+rng.value;val.textContent=t.sidew+'px';applyTheme(t);touch();};
   const row=document.getElementById('presetRow');
   row.innerHTML='';
   THEME_PRESETS.forEach(p=>{
@@ -985,6 +1015,11 @@ function openTheme(){
     row.appendChild(b);
   });
   openModal('themeModal');
+}
+function resetSidew(){
+  const t=proj().theme;
+  delete t.sidew;
+  applyTheme(t);touch();openTheme();
 }
 function renderHubSilently(){/* hub re-renders on close; nothing needed live */}
 
