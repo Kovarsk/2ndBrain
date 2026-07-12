@@ -133,6 +133,17 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .move-opt.selected{background:var(--accent);color:#fff}
 .move-opt.disabled{opacity:.35;pointer-events:none}
 
+/* merge conflicts */
+.conflict-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;font-size:.85rem}
+.conflict-row:nth-child(odd){background:rgba(255,255,255,.03)}
+.conflict-row .cpath{flex:1;color:var(--text);word-break:break-word;min-width:0}
+.conflict-row .cpath small{display:block;color:var(--muted);font-size:.72rem}
+.conflict-row .cbtns{display:flex;gap:0;flex-shrink:0}
+.conflict-row .cbtns .btn{border-radius:0;padding:3px 9px;font-size:.72rem}
+.conflict-row .cbtns .btn:first-child{border-radius:6px 0 0 6px}
+.conflict-row .cbtns .btn:last-child{border-radius:0 6px 6px 0;border-left:none}
+.conflict-row .cbtns .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:8px;z-index:300;font-size:.88rem;display:none;box-shadow:0 6px 20px rgba(0,0,0,.4)}
 
 @media (max-width:720px){
@@ -272,8 +283,27 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <p id="importChoiceText" style="color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:8px"></p>
     <div class="modal-actions" style="flex-wrap:wrap">
       <button class="btn" onclick="closeModal('importChoiceModal')">Cancel</button>
-      <button class="btn" onclick="applyImport('merge')">➕ Merge into project</button>
+      <button class="btn" onclick="applyImport('merge')">➕ Add everything (may duplicate)</button>
+      <button class="btn" onclick="applyImport('smart')">🔀 Smart merge (match by name)</button>
       <button class="btn primary" onclick="applyImport('replace')">♻ Replace project</button>
+    </div>
+  </div>
+</div>
+
+<!-- merge conflicts modal -->
+<div class="overlay" id="conflictModal">
+  <div class="modal" style="max-width:560px">
+    <h3>🔀 Resolve conflicts</h3>
+    <p style="color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:10px">
+      These files exist in both your project and the import. Choose which version to keep for each one. New files and folders have already been added either way.</p>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn small" onclick="setAllConflicts('keep')">Keep all mine</button>
+      <button class="btn small" onclick="setAllConflicts('import')">Use all imported</button>
+    </div>
+    <div class="move-tree" id="conflictList" style="max-height:340px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cancelConflicts()">Cancel (keep mine)</button>
+      <button class="btn primary" onclick="confirmConflicts()">Apply</button>
     </div>
   </div>
 </div>
@@ -323,7 +353,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <h4>Saving, backup &amp; AI</h4>
       <ul>
         <li>Everything saves automatically to <b>this browser's local storage</b>. It never leaves your machine — but clearing browser data (or switching browser/device) loses it, so export regularly.</li>
-        <li><b>💾 Export all</b> downloads the whole workspace as JSON; <b>💾 Export</b> inside a project downloads just that project. <b>📂 Import JSON</b> loads them back (merge or replace).</li>
+        <li><b>💾 Export all</b> downloads the whole workspace as JSON; <b>💾 Export</b> inside a project downloads just that project. <b>📂 Import JSON</b> loads them back. When importing into a project you can <b>Add everything</b> (simple append, may create duplicates), <b>Smart merge</b> (folders and files are matched by name; new items are added without duplicating, and for each file that exists on both sides you choose to keep yours or take the imported one — rows marked <i>identical content</i> can be left as-is), or <b>Replace</b> the project entirely.</li>
         <li><b>🤖 Copy for AI</b> copies the whole project as JSON so you can paste it to an AI assistant for help with your content.</li>
       </ul>
 
@@ -882,8 +912,69 @@ function importIntoProject(d){
   pendingImport=incoming;
   document.getElementById('importChoiceTitle').textContent=`Import "${incoming.name}"`;
   document.getElementById('importChoiceText').textContent=
-    `Merge adds its ${countFiles(incoming.tree||[])} file(s) to "${p.name}" and keeps everything you have. Replace wipes "${p.name}" and loads the file instead.`;
+    `"${incoming.name}" contains ${countFiles(incoming.tree||[])} file(s). Add everything simply appends it all (folders/files with the same name will appear twice). Smart merge matches folders and files by name — new items are added, and for files that exist on both sides you'll be asked which version to keep. Replace wipes "${p.name}" and loads the file instead.`;
   openModal('importChoiceModal');
+}
+let mergeConflicts=[];
+function smartMergeTrees(existing,incoming,path,conflicts){
+  let added=0;
+  incoming.forEach(inc=>{
+    const match=existing.find(ex=>ex.type===inc.type&&ex.name.trim().toLowerCase()===inc.name.trim().toLowerCase());
+    if(!match){
+      existing.push(inc);// ids already re-generated by reId
+      added+=inc.type==='file'?1:countFiles(inc.children);
+      return;
+    }
+    if(inc.type==='folder'){
+      added+=smartMergeTrees(match.children,inc.children,[...path,match.name],conflicts);
+      if(inc.open)match.open=true;
+    }else{
+      // same-name file in the same place → let the user decide
+      conflicts.push({existing:match,incoming:inc,path:[...path,match.name].join(' / '),choice:'keep'});
+    }
+  });
+  return added;
+}
+function renderConflictList(){
+  const list=document.getElementById('conflictList');
+  list.innerHTML='';
+  mergeConflicts.forEach((c,i)=>{
+    const row=document.createElement('div');
+    row.className='conflict-row';
+    const same=(c.existing.content||'')===(c.incoming.content||'')&&(c.existing.format||'html')===(c.incoming.format||'html');
+    row.innerHTML=`<div class="cpath"></div>
+      <span class="cbtns">
+        <button class="btn ${c.choice==='keep'?'on':''}" onclick="setConflict(${i},'keep')">Keep mine</button>
+        <button class="btn ${c.choice==='import'?'on':''}" onclick="setConflict(${i},'import')">Imported</button>
+      </span>`;
+    const cp=row.querySelector('.cpath');
+    cp.textContent=c.path;
+    if(same){const s=document.createElement('small');s.textContent='identical content';cp.appendChild(s);}
+    list.appendChild(row);
+  });
+}
+function setConflict(i,choice){mergeConflicts[i].choice=choice;renderConflictList();}
+function setAllConflicts(choice){mergeConflicts.forEach(c=>c.choice=choice);renderConflictList();}
+function cancelConflicts(){
+  mergeConflicts=[];
+  closeModal('conflictModal');
+  toast('Kept your versions for all conflicting files');
+}
+function confirmConflicts(){
+  let updated=0;
+  mergeConflicts.forEach(c=>{
+    if(c.choice==='import'){
+      c.existing.content=c.incoming.content;
+      c.existing.format=c.incoming.format||c.existing.format||'html';
+      c.existing.status=c.incoming.status||c.existing.status;
+      updated++;
+    }
+  });
+  mergeConflicts=[];
+  closeModal('conflictModal');
+  touch();
+  clearView();renderTree();
+  toast(updated?`${updated} file(s) updated from import`:'Kept your versions');
 }
 function applyImport(mode){
   const p=proj(),incoming=pendingImport;
@@ -898,6 +989,21 @@ function applyImport(mode){
     document.getElementById('projName').textContent=p.name;
     applyTheme(p.theme);
     toast('Project replaced');
+  }else if(mode==='smart'){
+    const conflicts=[];
+    const added=smartMergeTrees(p.tree,tree,[],conflicts);
+    p.updated=Date.now();
+    save();
+    clearView();renderTree();
+    if(conflicts.length){
+      mergeConflicts=conflicts;
+      renderConflictList();
+      openModal('conflictModal');
+      toast(`${added} new file(s) added — ${conflicts.length} conflict(s) to resolve`);
+    }else{
+      toast(`Smart merge: ${added} file(s) added, no conflicts`);
+    }
+    return;
   }else{
     p.tree.push(...tree);
     toast('Merged into project');
@@ -982,7 +1088,7 @@ function promptOk(){
   const cb=promptCb;promptCb=null;cb(v);
 }
 document.querySelectorAll('.overlay').forEach(o=>{
-  o.addEventListener('mousedown',e=>{if(e.target===o&&o.id!=='editorModal')closeModal(o.id);});
+  o.addEventListener('mousedown',e=>{if(e.target===o&&o.id!=='editorModal'&&o.id!=='conflictModal')closeModal(o.id);});
 });
 let toastTimer=null;
 function toast(msg){
