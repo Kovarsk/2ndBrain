@@ -52,9 +52,9 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .node-row .icon{flex-shrink:0}
 .node-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .node-row .status{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.status.todo{background:#8f8f96}
-.status.progress{background:#e5a93b}
-.status.done{background:#3be588}
+.status.todo{background:var(--st-todo,#8f8f96)}
+.status.progress{background:var(--st-progress,#e5a93b)}
+.status.done{background:var(--st-done,#3be588)}
 .node-row .dots{visibility:hidden;padding:0 5px;font-weight:bold;flex-shrink:0}
 .node-row:hover .dots{visibility:visible}
 .node-kids{margin-left:16px;border-left:1px solid var(--border);padding-left:4px}
@@ -87,9 +87,9 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .fb-empty{color:var(--muted);font-size:.82rem;font-style:italic;padding-bottom:12px}
 .placeholder{color:var(--muted);text-align:center;margin-top:80px;line-height:1.8}
 .status-pill{font-size:.7rem;padding:2px 8px;border-radius:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px}
-.status-pill.todo{background:#3a3a40;color:#cfcfd4}
-.status-pill.progress{background:#e5a93b;color:#121214}
-.status-pill.done{background:#3be588;color:#121214}
+.status-pill.todo{background:var(--st-todo,#8f8f96);color:#121214}
+.status-pill.progress{background:var(--st-progress,#e5a93b);color:#121214}
+.status-pill.done{background:var(--st-done,#3be588);color:#121214}
 
 /* ---------- CONTEXT MENU ---------- */
 .ctx{position:fixed;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:100;display:none;min-width:180px;padding:4px;font-size:.85rem}
@@ -275,6 +275,9 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <div class="color-row"><label>Muted text</label><input type="color" data-k="muted"></div>
     <div class="color-row"><label>Accent</label><input type="color" data-k="accent"></div>
     <div class="color-row"><label>Borders</label><input type="color" data-k="border"></div>
+    <div class="color-row" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px"><label>Status: to do</label><input type="color" data-k="stTodo"></div>
+    <div class="color-row"><label>Status: in progress</label><input type="color" data-k="stProgress"></div>
+    <div class="color-row"><label>Status: done</label><input type="color" data-k="stDone"></div>
     <div class="color-row" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
       <label>Sidebar width <span id="sidewVal" style="color:var(--muted)"></span></label>
       <input type="range" id="sidewRange" min="200" max="560" step="10" style="width:160px">
@@ -372,7 +375,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
       </ul>
 
       <h4>Themes</h4>
-      <p><b>🎨 Theme</b> (inside a project) sets that project's colors — pick a preset or tune each color individually.</p>
+      <p><b>🎨 Theme</b> (inside a project) sets that project's colors — pick a preset or tune each color individually, including the three status colors (to do / in progress / done). On the Projects screen, each card's top border shows overall progress: red (nothing done) → yellow (halfway) → green (all done).</p>
 
       <h4>Saving, backup &amp; AI</h4>
       <ul>
@@ -401,7 +404,8 @@ const THEME_PRESETS=[
   {name:'Paper (light)',bg:'#f5f4f0',panel:'#ffffff',content:'#faf9f6',text:'#25231f',muted:'#6f6a60',accent:'#c2571f',border:'#e0ddd4'},
   {name:'Violet',bg:'#141020',panel:'#1b1530',content:'#231c3e',text:'#e6e0f5',muted:'#a79cc7',accent:'#9d5cf5',border:'#332a52'},
 ];
-const defaultTheme=()=>({...THEME_PRESETS[0]});
+const STATUS_DEFAULTS={stTodo:'#8f8f96',stProgress:'#e5a93b',stDone:'#3be588'};
+const defaultTheme=()=>({...THEME_PRESETS[0],...STATUS_DEFAULTS});
 let ws=load();
 let currentProjectId=null, currentViewId=null;
 let ctxTarget=null, moveTarget=null, moveDest=undefined, editingFileId=null, promptCb=null;
@@ -470,13 +474,17 @@ function renderHub(){
   }
   ws.projects.forEach(p=>{
     const files=countFiles(p.tree);
-    const done=(()=>{let d=0;walk(p.tree,n=>{if(n.type==='file'&&n.status==='done')d++;});return d;})();
+    const st=countStatuses(p.tree);
+    const done=st.done;
+    // border color reflects progress: red (0% done) → yellow (50%) → green (100%)
+    const ratio=files?done/files:0;
+    const borderCol=`hsl(${Math.round(ratio*120)},75%,48%)`;
     const card=document.createElement('div');
     card.className='proj-card';
-    card.style.setProperty('--pc',p.theme.accent);
+    card.style.setProperty('--pc',borderCol);
     card.onclick=()=>openProject(p.id);
     card.innerHTML=`<h3></h3>
-      <div class="meta">${files} file${files===1?'':'s'} · ${done} done<br>Edited ${new Date(p.updated||Date.now()).toLocaleDateString()}</div>
+      <div class="meta">${files} file${files===1?'':'s'} · ${done} done<br>${st.progress} in progress · ${st.todo} to do<br>Edited ${new Date(p.updated||Date.now()).toLocaleDateString()}</div>
       <span class="dots" onclick="event.stopPropagation();projMenu(event,'${p.id}')">⋯</span>`;
     card.querySelector('h3').textContent=p.name;
     grid.appendChild(card);
@@ -516,6 +524,9 @@ function closeProject(){
 function applyTheme(t){
   const r=document.documentElement.style;
   for(const k of['bg','panel','content','text','muted','accent','border'])r.setProperty('--'+k,t[k]);
+  r.setProperty('--st-todo',t.stTodo||STATUS_DEFAULTS.stTodo);
+  r.setProperty('--st-progress',t.stProgress||STATUS_DEFAULTS.stProgress);
+  r.setProperty('--st-done',t.stDone||STATUS_DEFAULTS.stDone);
   r.setProperty('--sidew',(t.sidew||300)+'px');
 }
 function touch(){const p=proj();if(p)p.updated=Date.now();save();}
@@ -1026,7 +1037,7 @@ function confirmMove(){
 function openTheme(){
   const t=proj().theme;
   document.querySelectorAll('#themeModal input[type=color]').forEach(inp=>{
-    inp.value=t[inp.dataset.k];
+    inp.value=t[inp.dataset.k]||STATUS_DEFAULTS[inp.dataset.k]||'#000000';
     inp.oninput=()=>{t[inp.dataset.k]=inp.value;applyTheme(t);touch();renderHubSilently();};
   });
   const rng=document.getElementById('sidewRange'),val=document.getElementById('sidewVal');
