@@ -72,7 +72,17 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .folder-block{margin-bottom:16px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:color-mix(in srgb,var(--panel) 60%,transparent)}
 .folder-block-title{padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:.92rem;border-bottom:1px solid var(--border)}
 .folder-block-title b{color:var(--text)}
-.folder-block-title .fb-count{margin-left:auto;font-size:.72rem;color:var(--muted)}
+.folder-block-title .fb-count{font-size:.72rem;color:var(--muted)}
+.rb-caret{width:16px;text-align:center;font-size:.72rem;color:var(--muted);flex-shrink:0;cursor:pointer;user-select:none}
+.rb-name{cursor:pointer}
+.rb-name:hover{color:var(--accent);text-decoration:underline}
+.rb-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.st-counts{display:flex;align-items:center;gap:8px}
+.st-counts .stc{display:flex;align-items:center;gap:4px;font-size:.72rem;color:var(--muted)}
+.st-counts .stc .status{width:9px;height:9px;border-radius:50%;display:inline-block}
+.render-block.collapsed iframe{display:none}
+.folder-block.collapsed .folder-block-body{display:none}
+.folder-block.collapsed .folder-block-title,.render-block.collapsed .render-title{border-bottom:none}
 .folder-block-body{padding:14px 14px 2px 14px}
 .fb-empty{color:var(--muted);font-size:.82rem;font-style:italic;padding-bottom:12px}
 .placeholder{color:var(--muted);text-align:center;margin-top:80px;line-height:1.8}
@@ -339,6 +349,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <ul>
         <li><b>Click a file</b> → its HTML is rendered full-size on the right.</li>
         <li><b>Click a folder</b> → the right side renders <i>everything inside it</i>: each file becomes a block, and each subfolder becomes its own block containing its files (and its subfolders, recursively).</li>
+        <li>In the rendered view, the <b>▾ caret</b> on a block collapses/expands it, and <b>clicking the name</b> of a file or folder jumps to it. Folder blocks show the file count plus three status dots with how many files inside are <i>to do / in progress / done</i>.</li>
         <li>The <b>▸ / ▾ caret</b> only expands or collapses a folder in the tree — it doesn't change the selection.</li>
         <li>The <b>⋯ menu</b> on any item: new file / new subfolder (folders), edit HTML and status (files), rename, move, reorder, delete.</li>
         <li>The <b>dot</b> next to a file is its status — click it to cycle: <i>to&nbsp;do → in&nbsp;progress → done</i>.</li>
@@ -437,6 +448,17 @@ function collectFiles(node,path,out){
   for(const c of node.children)collectFiles(c,[...path,node.name],out);
 }
 function countFiles(nodes){let c=0;walk(nodes,n=>{if(n.type==='file')c++;});return c;}
+function countStatuses(nodes){
+  const c={todo:0,progress:0,done:0};
+  walk(nodes,n=>{if(n.type==='file')c[n.status||'todo']++;});
+  return c;
+}
+function statusCountsHtml(nodes){
+  const c=countStatuses(nodes);
+  return `<span class="st-counts">`+['todo','progress','done']
+    .map(s=>`<span class="stc" title="${{todo:'To do',progress:'In progress',done:'Done'}[s]}"><span class="status ${s}"></span>${c[s]}</span>`)
+    .join('')+`</span>`;
+}
 
 /* ================= HUB ================= */
 function renderHub(){
@@ -731,8 +753,11 @@ function renderDoc(file){
 function fileBlock(file,standalone){
   const block=document.createElement('div');block.className='render-block';
   if(!standalone){
+    if(file.rc)block.classList.add('collapsed');
     const title=document.createElement('div');title.className='render-title';
-    title.innerHTML=`<span class="icon">${file.format==='md'?'📝':'📄'}</span><b>${esc(file.name)}</b>${statusPill(file.status)}<button class="btn small" style="margin-left:auto" onclick="openEditor('${file.id}')">✏️ Edit</button>`;
+    title.innerHTML=`<span class="rb-caret">${file.rc?'▸':'▾'}</span><span class="icon">${file.format==='md'?'📝':'📄'}</span><b class="rb-name" title="Open this file">${esc(file.name)}</b>${statusPill(file.status)}<button class="btn small" style="margin-left:auto" onclick="openEditor('${file.id}')">✏️ Edit</button>`;
+    title.querySelector('.rb-caret').onclick=()=>{file.rc=!file.rc;save();block.classList.toggle('collapsed',file.rc);title.querySelector('.rb-caret').textContent=file.rc?'▸':'▾';};
+    title.querySelector('.rb-name').onclick=()=>viewNode(file.id);
     block.appendChild(title);
   }
   const fr=document.createElement('iframe');
@@ -744,8 +769,11 @@ function fileBlock(file,standalone){
 }
 function folderBlock(folder){
   const block=document.createElement('div');block.className='folder-block';
+  if(folder.rc)block.classList.add('collapsed');
   const title=document.createElement('div');title.className='folder-block-title';
-  title.innerHTML=`<span>📁</span><b>${esc(folder.name)}</b><span class="fb-count">${countFiles(folder.children)} file${countFiles(folder.children)===1?'':'s'}</span>`;
+  title.innerHTML=`<span class="rb-caret">${folder.rc?'▸':'▾'}</span><span>📁</span><b class="rb-name" title="Open this folder">${esc(folder.name)}</b><span class="rb-right"><span class="fb-count">${countFiles(folder.children)} file${countFiles(folder.children)===1?'':'s'}</span>${statusCountsHtml(folder.children)}</span>`;
+  title.querySelector('.rb-caret').onclick=()=>{folder.rc=!folder.rc;save();block.classList.toggle('collapsed',folder.rc);title.querySelector('.rb-caret').textContent=folder.rc?'▸':'▾';};
+  title.querySelector('.rb-name').onclick=()=>viewNode(folder.id);
   block.appendChild(title);
   const body=document.createElement('div');body.className='folder-block-body';
   if(!folder.children.length){
