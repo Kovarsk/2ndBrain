@@ -111,6 +111,11 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 #editorModal .split iframe{flex:1;border:1px solid var(--border);border-radius:6px;background:#fff;display:none}
 #editorModal.previewing .split iframe{display:block}
 #editorModal.previewing .split textarea{display:none}
+.fmt-toggle{display:flex;gap:0}
+.fmt-toggle .btn{border-radius:0}
+.fmt-toggle .btn:first-child{border-radius:6px 0 0 6px}
+.fmt-toggle .btn:last-child{border-radius:0 6px 6px 0;border-left:none}
+.fmt-toggle .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* user manual */
 .manual{font-size:.88rem;line-height:1.65;color:var(--text)}
@@ -184,7 +189,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <div class="content-head" id="contentHead" style="display:none">
       <h2 id="viewTitle"></h2>
       <span id="viewStatus"></span>
-      <button class="btn small" id="editBtn" onclick="openEditor(currentViewId)">✏️ Edit HTML</button>
+      <button class="btn small" id="editBtn" onclick="openEditor(currentViewId)">✏️ Edit</button>
       <div class="crumb" id="viewCrumb"></div>
     </div>
     <div class="content-body" id="contentBody">
@@ -211,11 +216,15 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 <!-- editor modal -->
 <div class="overlay" id="editorModal">
   <div class="modal">
-    <h3 id="editorTitle" style="display:flex;align-items:center;gap:10px">Edit HTML
-      <button class="btn small" style="margin-left:auto" onclick="togglePreview()" id="previewBtn">👁 Preview</button>
+    <h3 id="editorTitle" style="display:flex;align-items:center;gap:10px">Edit
+      <span class="fmt-toggle" style="margin-left:auto">
+        <button class="btn small" id="fmtHtml" onclick="setEditorFormat('html')">HTML</button>
+        <button class="btn small" id="fmtMd" onclick="setEditorFormat('md')">Markdown</button>
+      </span>
+      <button class="btn small" onclick="togglePreview()" id="previewBtn">👁 Preview</button>
     </h3>
     <div class="split">
-      <textarea id="editorArea" placeholder="Paste or write the HTML for this file. Only the rendered result is shown in the project view." spellcheck="false"></textarea>
+      <textarea id="editorArea" placeholder="Paste or write the content for this file. Only the rendered result is shown in the project view." spellcheck="false"></textarea>
       <iframe id="editorPreview"></iframe>
     </div>
     <div class="modal-actions">
@@ -276,7 +285,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <div class="manual">
 
       <h4>What is this?</h4>
-      <p>Second Brain is a personal workspace that lives entirely in your browser. You organize <b>projects</b>, and inside each project a tree of <b>folders</b> and <b>files</b>. Every file holds a piece of HTML that gets rendered for you.</p>
+      <p>Second Brain is a personal workspace that lives entirely in your browser. You organize <b>projects</b>, and inside each project a tree of <b>folders</b> and <b>files</b>. Every file holds a piece of HTML or Markdown that gets rendered for you.</p>
 
       <h4>Projects (this screen)</h4>
       <ul>
@@ -303,7 +312,8 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
 
       <h4>Editing file content</h4>
       <ul>
-        <li>Open a file and press <b>✏️ Edit HTML</b> (or ⋯ → Edit HTML). Paste or write any HTML; <b>👁 Preview</b> shows the result before saving.</li>
+        <li>Open a file and press <b>✏️ Edit</b> (or ⋯ → Edit content). Each file is either <b>HTML</b> or <b>Markdown</b> — switch with the toggle at the top of the editor. <b>👁 Preview</b> shows the result before saving.</li>
+        <li><b>Markdown</b> supports headings, bold/italic, links, images, code blocks, nested lists, task checkboxes <code>- [ ]</code>, tables, quotes and dividers. Name a new file ending in <b>.md</b> to start it in Markdown mode.</li>
         <li>Files render in a sandboxed frame, so scripts inside your HTML run safely per file. Drag the bottom edge of a rendered block to resize it.</li>
       </ul>
 
@@ -457,7 +467,7 @@ function renderTree(){
         row.querySelector('.caret').onclick=e=>{e.stopPropagation();n.open=!n.open;save();renderTree();};
         row.onclick=()=>viewNode(n.id);
       }else{
-        row.innerHTML=`<span class="caret"></span><span class="icon">📄</span><span class="nm"></span><span class="status ${n.status||'todo'}" title="Click to change status"></span><span class="dots">⋯</span>`;
+        row.innerHTML=`<span class="caret"></span><span class="icon">${n.format==='md'?'📝':'📄'}</span><span class="nm"></span><span class="status ${n.status||'todo'}" title="Click to change status"></span><span class="dots">⋯</span>`;
         row.querySelector('.status').onclick=e=>{e.stopPropagation();cycleStatus(n);};
         row.onclick=()=>viewNode(n.id);
       }
@@ -490,7 +500,7 @@ function nodeMenu(e,n){
     items.push(['+ New subfolder',()=>createNode(n.id,'folder')]);
     items.push(['hr']);
   }else{
-    items.push(['✏️ Edit HTML',()=>openEditor(n.id)]);
+    items.push(['✏️ Edit content',()=>openEditor(n.id)]);
     items.push(['Status: to do',()=>setStatus(n,'todo')]);
     items.push(['Status: in progress',()=>setStatus(n,'progress')]);
     items.push(['Status: done',()=>setStatus(n,'done')]);
@@ -534,7 +544,7 @@ function createNode(parentId,type){
   askText(type==='folder'?'New folder name':'New file name',name=>{
     const node=type==='folder'
       ?{id:uid(),type:'folder',name,open:true,children:[]}
-      :{id:uid(),type:'file',name,status:'todo',content:''};
+      :{id:uid(),type:'file',name,status:'todo',content:'',format:/\.md$/i.test(name)?'md':'html'};
     if(parentId){
       const info=findNode(parentId,proj().tree);
       info.node.children.push(node);info.node.open=true;
@@ -554,17 +564,137 @@ function clearView(){
 function statusPill(s){s=s||'todo';const lbl={todo:'To do',progress:'In progress',done:'Done'}[s];return `<span class="status-pill ${s}">${lbl}</span>`;}
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
+/* ================= MARKDOWN ================= */
+function mdInline(s){
+  // protect inline code spans first
+  const codes=[];
+  s=s.replace(/`([^`\n]+)`/g,(m,c)=>{codes.push(c);return '\u0000C'+(codes.length-1)+'\u0000';});
+  s=s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g,(m,alt,url)=>`<img src="${url}" alt="${alt}">`);
+  s=s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g,(m,txt,url)=>`<a href="${url}" target="_blank" rel="noopener">${txt}</a>`);
+  s=s.replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g,'<strong>$2</strong>');
+  s=s.replace(/(\*|_)(?=\S)([\s\S]*?\S)\1/g,'<em>$2</em>');
+  s=s.replace(/~~(?=\S)([\s\S]*?\S)~~/g,'<del>$1</del>');
+  s=s.replace(/\u0000C(\d+)\u0000/g,(m,i)=>'<code>'+codes[+i]+'</code>');
+  return s;
+}
+function mdToHtml(src){
+  src=(src||'').replace(/\r\n?/g,'\n');
+  // pull out fenced code blocks before any other processing
+  const fences=[];
+  src=src.replace(/^```([^\n]*)\n([\s\S]*?)\n?```[ \t]*$/gm,(m,lang,code)=>{
+    fences.push({lang:lang.trim(),code});
+    return '\u0000F'+(fences.length-1)+'\u0000';
+  });
+  return mdBlocks(esc(src).split('\n'),fences);
+}
+function mdBlocks(lines,fences){
+  let html='',i=0;
+  const isBlank=l=>/^\s*$/.test(l);
+  while(i<lines.length){
+    let line=lines[i];
+    if(isBlank(line)){i++;continue;}
+    // fenced code placeholder
+    let fm=line.match(/^\u0000F(\d+)\u0000\s*$/);
+    if(fm){
+      const f=fences[+fm[1]];
+      html+=`<pre><code${f.lang?` class="lang-${esc(f.lang)}"`:''}>${esc(f.code)}</code></pre>`;
+      i++;continue;
+    }
+    // heading
+    let m=line.match(/^(#{1,6})\s+(.*)$/);
+    if(m){html+=`<h${m[1].length}>${mdInline(m[2].replace(/\s+#+\s*$/,''))}</h${m[1].length}>`;i++;continue;}
+    // horizontal rule
+    if(/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)){html+='<hr>';i++;continue;}
+    // blockquote
+    if(/^\s{0,3}&gt;/.test(line)){
+      const buf=[];
+      while(i<lines.length&&/^\s{0,3}&gt;/.test(lines[i])){
+        buf.push(lines[i].replace(/^\s{0,3}&gt; ?/,''));i++;
+      }
+      html+='<blockquote>'+mdBlocks(buf,fences)+'</blockquote>';
+      continue;
+    }
+    // table: header row + separator row
+    if(line.includes('|')&&i+1<lines.length&&/^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i+1])&&lines[i+1].includes('-')){
+      const splitRow=r=>r.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(c=>c.trim());
+      const head=splitRow(line);
+      i+=2;
+      let rows=[];
+      while(i<lines.length&&lines[i].includes('|')&&!isBlank(lines[i])){rows.push(splitRow(lines[i]));i++;}
+      html+='<table><thead><tr>'+head.map(c=>'<th>'+mdInline(c)+'</th>').join('')+'</tr></thead><tbody>'
+        +rows.map(r=>'<tr>'+head.map((_,ci)=>'<td>'+mdInline(r[ci]||'')+'</td>').join('')+'</tr>').join('')
+        +'</tbody></table>';
+      continue;
+    }
+    // lists (nested by indentation)
+    let lm=line.match(/^(\s*)([-*+]|\d+[.)])\s+/);
+    if(lm){
+      const parseList=(start,indent)=>{
+        const ordered=/\d/.test(lines[start].match(/^(\s*)([-*+]|\d+[.)])\s+/)[2]);
+        let out='<'+(ordered?'ol':'ul')+'>',j=start;
+        while(j<lines.length){
+          const it=lines[j].match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+          if(!it||it[1].length<indent)break;
+          if(it[1].length>indent){const sub=parseList(j,it[1].length);out=out.replace(/<\/li>$/,sub.html+'</li>');j=sub.next;continue;}
+          let text=it[3];
+          const task=text.match(/^\[( |x|X)\]\s+(.*)$/);
+          j++;
+          // continuation lines (indented, not new list items, not blank)
+          while(j<lines.length&&!isBlank(lines[j])&&!lines[j].match(/^(\s*)([-*+]|\d+[.)])\s+/)&&/^\s+/.test(lines[j])){
+            text+=' '+lines[j].trim();j++;
+          }
+          if(task)out+=`<li class="task"><input type="checkbox" disabled${task[1]!==' '?' checked':''}> ${mdInline(task[2])}</li>`;
+          else out+='<li>'+mdInline(text)+'</li>';
+        }
+        return {html:out+'</'+(ordered?'ol':'ul')+'>',next:j};
+      };
+      const res=parseList(i,lm[1].length);
+      html+=res.html;i=res.next;continue;
+    }
+    // paragraph: gather until blank line or block start
+    const buf=[line];i++;
+    while(i<lines.length&&!isBlank(lines[i])
+      &&!/^(#{1,6})\s/.test(lines[i])
+      &&!/^\s{0,3}&gt;/.test(lines[i])
+      &&!/^(\s*)([-*+]|\d+[.)])\s+/.test(lines[i])
+      &&!/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(lines[i])
+      &&!/^\u0000F\d+\u0000\s*$/.test(lines[i])){
+      buf.push(lines[i]);i++;
+    }
+    html+='<p>'+buf.map(mdInline).join('<br>')+'</p>';
+  }
+  return html;
+}
+const MD_CSS=`body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#25231f;background:#fff;padding:24px;line-height:1.65;font-size:15px;max-width:820px;margin:0 auto}
+h1,h2,h3,h4,h5,h6{line-height:1.3;margin:1.2em 0 .45em}h1:first-child,h2:first-child,h3:first-child{margin-top:0}
+h1{font-size:1.7em;border-bottom:1px solid #e4e1d8;padding-bottom:.25em}h2{font-size:1.35em}h3{font-size:1.15em}
+p{margin:.55em 0}a{color:#c2571f}img{max-width:100%}
+code{background:#f0efe9;border:1px solid #e4e1d8;border-radius:4px;padding:1px 5px;font-family:ui-monospace,Consolas,monospace;font-size:.88em}
+pre{background:#f6f5f0;border:1px solid #e4e1d8;border-radius:8px;padding:12px 14px;overflow-x:auto;margin:.8em 0}
+pre code{background:none;border:none;padding:0;font-size:.85em;line-height:1.5}
+blockquote{border-left:4px solid #c2571f;margin:.8em 0;padding:.2em 0 .2em 14px;color:#6f6a60}
+ul,ol{margin:.55em 0;padding-left:26px}li{margin:.2em 0}
+li.task{list-style:none;margin-left:-20px}
+table{border-collapse:collapse;margin:.8em 0;width:100%}
+th,td{border:1px solid #ddd9cd;padding:6px 10px;text-align:left}th{background:#f0efe9}
+hr{border:none;border-top:1px solid #ddd9cd;margin:1.4em 0}`;
+function renderDoc(file){
+  if(!file.content)return '';
+  if(file.format==='md')return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${MD_CSS}</style></head><body>${mdToHtml(file.content)}</body></html>`;
+  return file.content;
+}
+
 function fileBlock(file,standalone){
   const block=document.createElement('div');block.className='render-block';
   if(!standalone){
     const title=document.createElement('div');title.className='render-title';
-    title.innerHTML=`<span class="icon">📄</span><b>${esc(file.name)}</b>${statusPill(file.status)}<button class="btn small" style="margin-left:auto" onclick="openEditor('${file.id}')">✏️ Edit</button>`;
+    title.innerHTML=`<span class="icon">${file.format==='md'?'📝':'📄'}</span><b>${esc(file.name)}</b>${statusPill(file.status)}<button class="btn small" style="margin-left:auto" onclick="openEditor('${file.id}')">✏️ Edit</button>`;
     block.appendChild(title);
   }
   const fr=document.createElement('iframe');
   fr.setAttribute('sandbox','allow-scripts');
   if(standalone)fr.style.height='calc(100vh - 180px)';
-  fr.srcdoc=file.content||'<body style="font-family:sans-serif;color:#888;padding:20px">Empty file — use Edit HTML to add content.</body>';
+  fr.srcdoc=renderDoc(file)||'<body style="font-family:sans-serif;color:#888;padding:20px">Empty file — use ✏️ Edit to add content.</body>';
   block.appendChild(fr);
   return block;
 }
@@ -609,25 +739,42 @@ function viewNode(id,keepScroll){
 }
 
 /* ================= EDITOR ================= */
+let editingFormat='html';
 function openEditor(fileId){
   const info=findNode(fileId,proj().tree);
   if(!info||info.node.type!=='file')return;
   editingFileId=fileId;
-  document.getElementById('editorTitle').childNodes[0].textContent='Edit HTML — '+info.node.name+' ';
+  editingFormat=info.node.format||'html';
+  refreshFmtButtons();
+  document.getElementById('editorTitle').childNodes[0].textContent='Edit — '+info.node.name+' ';
   document.getElementById('editorArea').value=info.node.content||'';
   document.getElementById('editorModal').classList.remove('previewing');
   openModal('editorModal');
   document.getElementById('editorArea').focus();
 }
+function refreshFmtButtons(){
+  document.getElementById('fmtHtml').classList.toggle('on',editingFormat==='html');
+  document.getElementById('fmtMd').classList.toggle('on',editingFormat==='md');
+  document.getElementById('editorArea').placeholder=editingFormat==='md'
+    ?'Write Markdown here — # headings, **bold**, - lists, ``` code blocks, tables, > quotes…'
+    :'Paste or write the HTML for this file. Only the rendered result is shown in the project view.';
+}
+function setEditorFormat(fmt){
+  editingFormat=fmt;
+  refreshFmtButtons();
+  const m=document.getElementById('editorModal');
+  if(m.classList.contains('previewing'))
+    document.getElementById('editorPreview').srcdoc=renderDoc({content:document.getElementById('editorArea').value,format:editingFormat});
+}
 function togglePreview(){
   const m=document.getElementById('editorModal');
   m.classList.toggle('previewing');
   if(m.classList.contains('previewing'))
-    document.getElementById('editorPreview').srcdoc=document.getElementById('editorArea').value;
+    document.getElementById('editorPreview').srcdoc=renderDoc({content:document.getElementById('editorArea').value,format:editingFormat});
 }
 function saveEditor(){
   const info=findNode(editingFileId,proj().tree);
-  if(info)info.node.content=document.getElementById('editorArea').value;
+  if(info){info.node.content=document.getElementById('editorArea').value;info.node.format=editingFormat;}
   touch();closeModal('editorModal');
   viewNode(editingFileId,true);
 }
@@ -794,7 +941,7 @@ function importData(d){
 function copyForAI(){
   const p=proj();
   const payload={project:p.name,exported:new Date().toISOString(),
-    note:'Second Brain project export. Folders contain children; files contain HTML content and a status (todo/progress/done).',
+    note:'Second Brain project export. Folders contain children; files have a format ("html" or "md"), content in that format, and a status (todo/progress/done).',
     tree:p.tree};
   const txt=JSON.stringify(payload,null,2);
   navigator.clipboard.writeText(txt).then(()=>toast('Project JSON copied — paste it to your AI'))
