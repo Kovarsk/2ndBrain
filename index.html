@@ -181,6 +181,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <div class="hub-actions">
         <button class="btn" onclick="openModal('manualModal')">❓ Manual</button>
         <button class="btn" onclick="fileInput.click()">📂 Import JSON</button>
+        <button class="btn" onclick="openMergeProjects()">⇄ Merge projects</button>
         <button class="btn" onclick="exportWorkspace()">💾 Export all</button>
         <button class="btn primary" onclick="newProject()">+ New project</button>
       </div>
@@ -345,7 +346,8 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <h4>Projects (this screen)</h4>
       <ul>
         <li><b>+ New project</b> creates a project. Click a card to open it.</li>
-        <li>The <b>⋯</b> on a project card lets you open, rename, export or delete it.</li>
+        <li>The <b>⋯</b> on a project card lets you open, rename, export, merge or delete it.</li>
+        <li><b>⇄ Merge projects</b> combines two projects: pick the <i>main</i> project and the one to merge into it. Contents are smart-merged (matched by name, conflicts resolved by you), and you can optionally delete the source project afterwards.</li>
       </ul>
 
       <h4>The tree (left sidebar)</h4>
@@ -380,13 +382,42 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <h4>Saving, backup &amp; AI</h4>
       <ul>
         <li>Everything saves automatically to <b>this browser's local storage</b>. It never leaves your machine — but clearing browser data (or switching browser/device) loses it, so export regularly.</li>
-        <li><b>💾 Export all</b> downloads the whole workspace as JSON; <b>💾 Export</b> inside a project downloads just that project. <b>📂 Import JSON</b> loads them back. When importing into a project you can <b>Add everything</b> (simple append, may create duplicates), <b>Smart merge</b> (folders and files are matched by name; new items are added without duplicating, and for each file that exists on both sides you choose to keep yours or take the imported one — rows marked <i>identical content</i> can be left as-is), or <b>Replace</b> the project entirely.</li>
+        <li><b>💾 Export all</b> downloads the whole workspace as JSON; <b>💾 Export</b> inside a project downloads just that project. <b>📂 Import JSON</b> loads them back. When importing a workspace on the Projects screen you can <b>Add all</b> (simple append, may create duplicate projects), <b>Smart merge</b> (projects are matched by name; inside matching projects, folders and files are matched by name too — new items are added and for files that exist on both sides you choose which version to keep), or <b>Replace</b> the whole workspace. When importing into a project the same choices apply to that project's tree.</li>
         <li><b>🤖 Copy for AI</b> copies the whole project as JSON so you can paste it to an AI assistant for help with your content.</li>
       </ul>
 
     </div>
     <div class="modal-actions">
       <button class="btn primary" onclick="closeModal('manualModal')">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- workspace import choice modal -->
+<div class="overlay" id="wsImportChoiceModal">
+  <div class="modal">
+    <h3>Import workspace</h3>
+    <p id="wsImportChoiceText" style="color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:8px"></p>
+    <div class="modal-actions" style="flex-wrap:wrap">
+      <button class="btn" onclick="closeModal('wsImportChoiceModal')">Cancel</button>
+      <button class="btn" onclick="applyWsImport('merge')">➕ Add all projects (may duplicate)</button>
+      <button class="btn" onclick="applyWsImport('smart')">🔀 Smart merge (match by name)</button>
+      <button class="btn primary" onclick="applyWsImport('replace')">♻ Replace workspace</button>
+    </div>
+  </div>
+</div>
+
+<!-- merge two projects modal -->
+<div class="overlay" id="mergeProjModal">
+  <div class="modal">
+    <h3>⇄ Merge two projects</h3>
+    <div class="row"><label>Main project (receives everything)</label><select id="mergeMain" style="width:100%"></select></div>
+    <div class="row"><label>Project to merge into it</label><select id="mergeSource" style="width:100%"></select></div>
+    <div class="row"><label style="text-transform:none;letter-spacing:0;display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--text)"><input type="checkbox" id="mergeDeleteSource" checked> Delete the source project after merging</label></div>
+    <p style="color:var(--muted);font-size:.8rem;line-height:1.5;margin-bottom:4px">Folders and files are matched by name (smart merge). New items are added; for files that exist in both projects you'll choose which version to keep.</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('mergeProjModal')">Cancel</button>
+      <button class="btn primary" onclick="confirmMergeProjects()">Merge</button>
     </div>
   </div>
 </div>
@@ -501,6 +532,7 @@ function projMenu(e,id){
     ['Open',()=>openProject(id)],
     ['Rename',()=>askText('Rename project',n=>{const p=ws.projects.find(x=>x.id===id);p.name=n;p.updated=Date.now();save();renderHub();},ws.projects.find(x=>x.id===id).name)],
     ['Export this project',()=>exportProject(id)],
+    ['Merge another project into this…',()=>openMergeProjects(id)],
     ['hr'],
     ['Delete project',()=>{if(confirm('Delete this project and everything in it?')){ws.projects=ws.projects.filter(p=>p.id!==id);save();renderHub();}},true],
   ]);
@@ -1170,8 +1202,12 @@ function confirmConflicts(){
   });
   mergeConflicts=[];
   closeModal('conflictModal');
-  touch();
-  clearView();renderTree();
+  save();
+  if(currentProjectId){
+    const p=proj();if(p)p.updated=Date.now();
+    save();
+    clearView();renderTree();
+  }else renderHub();
   toast(updated?`${updated} file(s) updated from import`:'Kept your versions');
 }
 function applyImport(mode){
@@ -1220,12 +1256,17 @@ function importFile(ev){
   };
   r.readAsText(f);
 }
+let pendingWsImport=null;
 function importData(d){
-  // v2 workspace
+  // v2 workspace → let the user choose how to bring it in
   if(d&&Array.isArray(d.projects)){
-    if(ws.projects.length&&!confirm('Replace your current workspace with the imported one?\n(Cancel = add its projects next to your current ones instead)')){
-      d.projects.forEach(p=>{p.id=uid();ws.projects.push(p);});
-    }else ws=d;
+    if(!ws.projects.length){ws=d;save();renderHub();toast('Workspace imported');return;}
+    pendingWsImport=d;
+    document.getElementById('wsImportChoiceText').textContent=
+      `The file contains ${d.projects.length} project(s) with ${d.projects.reduce((a,p)=>a+countFiles(p.tree||[]),0)} file(s) in total. `+
+      `Add all simply appends every project (same-name projects will appear twice). Smart merge matches projects by name — inside matching projects, folders and files are matched by name too, new items are added, and for files that exist on both sides you'll choose which version to keep. Replace wipes your whole workspace and loads the file instead.`;
+    openModal('wsImportChoiceModal');
+    return;
   }
   // v2 single project
   else if(d&&d.type==='project'&&d.project){
@@ -1241,6 +1282,98 @@ function importData(d){
   else{alert('Unrecognized JSON structure.');return;}
   save();renderHub();
   if(currentProjectId&&!ws.projects.find(p=>p.id===currentProjectId))closeProject();
+}
+function applyWsImport(mode){
+  const d=pendingWsImport;pendingWsImport=null;
+  closeModal('wsImportChoiceModal');
+  if(!d)return;
+  if(mode==='replace'){
+    ws=d;save();renderHub();
+    if(currentProjectId&&!ws.projects.find(p=>p.id===currentProjectId))closeProject();
+    toast('Workspace replaced');
+    return;
+  }
+  if(mode==='merge'){
+    d.projects.forEach(p=>{p.id=uid();reId(p.tree||[]);ws.projects.push(p);});
+    save();renderHub();
+    toast(`${d.projects.length} project(s) added`);
+    return;
+  }
+  // smart merge: match projects by name, then smart-merge their trees
+  const conflicts=[];let added=0,newProjects=0;
+  d.projects.forEach(inc=>{
+    const match=ws.projects.find(p=>p.name.trim().toLowerCase()===(inc.name||'').trim().toLowerCase());
+    const tree=reId(JSON.parse(JSON.stringify(inc.tree||[])));
+    if(!match){
+      ws.projects.push({...inc,id:uid(),tree,updated:Date.now()});
+      newProjects++;return;
+    }
+    added+=smartMergeTrees(match.tree,tree,[inc.name],conflicts);
+    match.updated=Date.now();
+  });
+  save();renderHub();
+  const parts=[];
+  if(newProjects)parts.push(`${newProjects} new project(s)`);
+  parts.push(`${added} file(s) added`);
+  if(conflicts.length){
+    mergeConflicts=conflicts;
+    renderConflictList();
+    openModal('conflictModal');
+    toast(`Smart merge: ${parts.join(', ')} — ${conflicts.length} conflict(s) to resolve`);
+  }else{
+    toast(`Smart merge: ${parts.join(', ')}, no conflicts`);
+  }
+}
+
+/* ---- merge two existing projects (hub) ---- */
+function openMergeProjects(preMainId){
+  if(ws.projects.length<2){toast('You need at least two projects to merge');return;}
+  const main=document.getElementById('mergeMain'),src=document.getElementById('mergeSource');
+  const fill=sel=>{
+    sel.innerHTML='';
+    ws.projects.forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.id;o.textContent=p.name;
+      sel.appendChild(o);
+    });
+  };
+  fill(main);fill(src);
+  if(preMainId)main.value=preMainId;
+  const other=ws.projects.find(p=>p.id!==main.value);
+  if(other)src.value=other.id;
+  main.onchange=()=>{
+    if(src.value===main.value){
+      const o=ws.projects.find(p=>p.id!==main.value);
+      if(o)src.value=o.id;
+    }
+  };
+  openModal('mergeProjModal');
+}
+function confirmMergeProjects(){
+  const mainId=document.getElementById('mergeMain').value;
+  const srcId=document.getElementById('mergeSource').value;
+  if(mainId===srcId){toast('Pick two different projects');return;}
+  const main=ws.projects.find(p=>p.id===mainId);
+  const srcP=ws.projects.find(p=>p.id===srcId);
+  if(!main||!srcP)return;
+  const tree=reId(JSON.parse(JSON.stringify(srcP.tree||[])));
+  const conflicts=[];
+  const added=smartMergeTrees(main.tree,tree,[],conflicts);
+  main.updated=Date.now();
+  if(document.getElementById('mergeDeleteSource').checked){
+    ws.projects=ws.projects.filter(p=>p.id!==srcId);
+    if(currentProjectId===srcId)closeProject();
+  }
+  save();renderHub();
+  closeModal('mergeProjModal');
+  if(conflicts.length){
+    mergeConflicts=conflicts;
+    renderConflictList();
+    openModal('conflictModal');
+    toast(`${added} file(s) added from "${srcP.name}" — ${conflicts.length} conflict(s) to resolve`);
+  }else{
+    toast(`Merged "${srcP.name}" into "${main.name}": ${added} file(s) added`);
+  }
 }
 function copyForAI(){
   const p=proj();
