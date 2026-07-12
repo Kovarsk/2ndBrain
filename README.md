@@ -22,7 +22,7 @@ A privacy-focused, local-first knowledge management workspace that runs entirely
 
 Because this application is a self-contained Single Page Application (SPA), deployment takes seconds.
 
-### Option A: just use the hosted page on Github
+### Option A: just use the hosted page on Github (https://kovarsk.github.io/2ndBrain/)
 
 ### Option B: Local Execution
 1. Clone the repository: `git clone https://github.com`
