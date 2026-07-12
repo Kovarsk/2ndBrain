@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Second Brain</title>
+<style>
+:root{
+  --bg:#121214; --panel:#1a1a1e; --content:#222227;
+  --text:#e1e1e6; --muted:#a4a4a4; --accent:#e50914; --border:#2e2e35;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+button{cursor:pointer;font-family:inherit}
+.btn{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:.85rem;transition:.15s}
+.btn:hover{border-color:var(--accent);color:#fff}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:3px 8px;font-size:.75rem}
+input[type=text],textarea,select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:inherit;font-size:.9rem}
+input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
+
+/* ---------- HUB ---------- */
+#hub{display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.hub-inner{max-width:860px;width:100%;margin:0 auto;padding:48px 24px}
+.hub-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;margin-bottom:32px}
+.hub-head h1{font-size:1.6rem;color:#fff}
+.hub-head p{color:var(--muted);font-size:.85rem;margin-top:4px}
+.hub-actions{display:flex;gap:8px;flex-wrap:wrap}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.proj-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;cursor:pointer;position:relative;transition:.15s;border-top:4px solid var(--pc,#e50914)}
+.proj-card:hover{transform:translateY(-2px);border-color:var(--pc,#e50914)}
+.proj-card h3{color:#fff;font-size:1.05rem;margin-bottom:6px;padding-right:24px;word-break:break-word}
+.proj-card .meta{color:var(--muted);font-size:.78rem;line-height:1.5}
+.proj-card .dots{position:absolute;top:12px;right:10px;color:var(--muted);padding:2px 8px;border-radius:4px;font-weight:bold}
+.proj-card .dots:hover{background:rgba(255,255,255,.08);color:#fff}
+.empty-hub{border:1px dashed var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--muted)}
+
+/* ---------- PROJECT VIEW ---------- */
+#project{display:none;height:100vh}
+#project.open{display:flex}
+.sidebar{width:300px;min-width:300px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.side-head{padding:16px;border-bottom:1px solid var(--border)}
+.side-head .backrow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.side-head h2{font-size:1.05rem;color:#fff;flex:1;word-break:break-word}
+.side-tools{display:flex;gap:6px;flex-wrap:wrap}
+.tree{flex:1;overflow-y:auto;padding:10px}
+.node{user-select:none}
+.node-row{display:flex;align-items:center;gap:4px;padding:5px 6px;border-radius:5px;font-size:.88rem;cursor:pointer;color:var(--muted)}
+.node-row:hover{background:rgba(255,255,255,.05);color:#fff}
+.node-row.active{background:var(--accent);color:#fff}
+.node-row .caret{width:14px;text-align:center;font-size:.7rem;flex-shrink:0}
+.node-row .icon{flex-shrink:0}
+.node-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node-row .status{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.status.todo{background:#8f8f96}
+.status.progress{background:#e5a93b}
+.status.done{background:#3be588}
+.node-row .dots{visibility:hidden;padding:0 5px;font-weight:bold;flex-shrink:0}
+.node-row:hover .dots{visibility:visible}
+.node-kids{margin-left:16px;border-left:1px solid var(--border);padding-left:4px}
+.tree-footer{padding:10px;border-top:1px solid var(--border);display:flex;gap:6px}
+
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--content)}
+.content-head{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.content-head h2{font-size:1.15rem;color:#fff;flex:1;min-width:150px;word-break:break-word}
+.content-head .crumb{color:var(--muted);font-size:.75rem;width:100%}
+.content-body{flex:1;overflow-y:auto;padding:20px}
+.render-block{margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel)}
+.render-title{padding:8px 14px;font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.render-title b{color:var(--text)}
+.render-block iframe{width:100%;height:520px;border:none;background:#fff;display:block;resize:vertical;overflow:auto}
+.folder-block{margin-bottom:16px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;background:color-mix(in srgb,var(--panel) 60%,transparent)}
+.folder-block-title{padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:.92rem;border-bottom:1px solid var(--border)}
+.folder-block-title b{color:var(--text)}
+.folder-block-title .fb-count{margin-left:auto;font-size:.72rem;color:var(--muted)}
+.folder-block-body{padding:14px 14px 2px 14px}
+.fb-empty{color:var(--muted);font-size:.82rem;font-style:italic;padding-bottom:12px}
+.placeholder{color:var(--muted);text-align:center;margin-top:80px;line-height:1.8}
+.status-pill{font-size:.7rem;padding:2px 8px;border-radius:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px}
+.status-pill.todo{background:#3a3a40;color:#cfcfd4}
+.status-pill.progress{background:#e5a93b;color:#121214}
+.status-pill.done{background:#3be588;color:#121214}
+
+/* ---------- CONTEXT MENU ---------- */
+.ctx{position:fixed;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:100;display:none;min-width:180px;padding:4px;font-size:.85rem}
+.ctx div{padding:8px 12px;cursor:pointer;border-radius:5px;color:var(--text)}
+.ctx div:hover{background:rgba(255,255,255,.08)}
+.ctx div.danger{color:#ff6b6b}
+.ctx hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+
+/* ---------- MODALS ---------- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;width:100%;max-width:460px;max-height:85vh;overflow-y:auto}
+.modal h3{color:#fff;margin-bottom:14px;font-size:1.05rem}
+.modal .row{margin-bottom:12px}
+.modal label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.modal input[type=text]{width:100%}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.color-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.color-row label{flex:1;margin:0;font-size:.85rem;color:var(--text);text-transform:none;letter-spacing:0}
+.color-row input[type=color]{width:44px;height:30px;border:1px solid var(--border);border-radius:6px;background:none;padding:2px;cursor:pointer}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.preset{width:34px;height:34px;border-radius:8px;border:2px solid var(--border);cursor:pointer}
+.preset:hover{border-color:#fff}
+
+/* editor modal */
+#editorModal .modal{max-width:1100px;height:85vh;display:flex;flex-direction:column}
+#editorModal textarea{flex:1;width:100%;font-family:ui-monospace,Consolas,monospace;font-size:.85rem;resize:none;line-height:1.5}
+#editorModal .split{flex:1;display:flex;gap:10px;min-height:0}
+#editorModal .split iframe{flex:1;border:1px solid var(--border);border-radius:6px;background:#fff;display:none}
+#editorModal.previewing .split iframe{display:block}
+#editorModal.previewing .split textarea{display:none}
+
+/* user manual */
+.manual{font-size:.88rem;line-height:1.65;color:var(--text)}
+.manual h4{color:#fff;margin:16px 0 6px;font-size:.95rem}
+.manual h4:first-child{margin-top:0}
+.manual p{margin-bottom:6px;color:var(--muted)}
+.manual p b,.manual li b{color:var(--text)}
+.manual ul{margin:0 0 6px 18px;color:var(--muted)}
+.manual li{margin-bottom:4px}
+
+/* move picker */
+.move-tree{border:1px solid var(--border);border-radius:8px;max-height:300px;overflow-y:auto;padding:6px;margin-bottom:6px}
+.move-opt{padding:7px 10px;border-radius:5px;cursor:pointer;font-size:.88rem;color:var(--muted)}
+.move-opt:hover{background:rgba(255,255,255,.07);color:#fff}
+.move-opt.selected{background:var(--accent);color:#fff}
+.move-opt.disabled{opacity:.35;pointer-events:none}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:8px;z-index:300;font-size:.88rem;display:none;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+
+@media (max-width:720px){
+  #project.open{flex-direction:column}
+  .sidebar{width:100%;min-width:0;max-height:45vh}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ PROJECT HUB ============ -->
+<div id="hub">
+  <div class="hub-inner">
+    <div class="hub-head">
+      <div>
+        <h1>🧠 Second Brain</h1>
+        <p>Pick a project, or import a workspace to continue where you left off.</p>
+      </div>
+      <div class="hub-actions">
+        <button class="btn" onclick="openModal('manualModal')">❓ Manual</button>
+        <button class="btn" onclick="fileInput.click()">📂 Import JSON</button>
+        <button class="btn" onclick="exportWorkspace()">💾 Export all</button>
+        <button class="btn primary" onclick="newProject()">+ New project</button>
+      </div>
+    </div>
+    <div id="projGrid" class="proj-grid"></div>
+  </div>
+</div>
+<input type="file" id="fileInput" accept=".json,application/json" style="display:none" onchange="importFile(event)">
+
+<!-- ============ PROJECT VIEW ============ -->
+<div id="project">
+  <div class="sidebar">
+    <div class="side-head">
+      <div class="backrow">
+        <button class="btn small" onclick="closeProject()">← Projects</button>
+        <h2 id="projName"></h2>
+      </div>
+      <div class="side-tools">
+        <button class="btn small" onclick="openTheme()">🎨 Theme</button>
+        <button class="btn small" onclick="copyForAI()">🤖 Copy for AI</button>
+        <button class="btn small" onclick="projFileInput.click()">📂 Import</button>
+        <button class="btn small" onclick="exportProject(currentProjectId)">💾 Export</button>
+        <input type="file" id="projFileInput" accept=".json,application/json" style="display:none" onchange="importProjectFile(event)">
+      </div>
+    </div>
+    <div class="tree" id="tree"></div>
+    <div class="tree-footer">
+      <button class="btn small" style="flex:1" onclick="createAtSelection('folder')">+ Folder</button>
+      <button class="btn small" style="flex:1" onclick="createAtSelection('file')">+ File</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="content-head" id="contentHead" style="display:none">
+      <h2 id="viewTitle"></h2>
+      <span id="viewStatus"></span>
+      <button class="btn small" id="editBtn" onclick="openEditor(currentViewId)">✏️ Edit HTML</button>
+      <div class="crumb" id="viewCrumb"></div>
+    </div>
+    <div class="content-body" id="contentBody">
+      <div class="placeholder">Select a file to render it,<br>or a folder to render everything inside it.</div>
+    </div>
+  </div>
+</div>
+
+<!-- context menu -->
+<div class="ctx" id="ctx"></div>
+
+<!-- generic prompt modal -->
+<div class="overlay" id="promptModal">
+  <div class="modal">
+    <h3 id="promptTitle"></h3>
+    <div class="row"><input type="text" id="promptInput" onkeydown="if(event.key==='Enter')promptOk()"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('promptModal')">Cancel</button>
+      <button class="btn primary" onclick="promptOk()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- editor modal -->
+<div class="overlay" id="editorModal">
+  <div class="modal">
+    <h3 id="editorTitle" style="display:flex;align-items:center;gap:10px">Edit HTML
+      <button class="btn small" style="margin-left:auto" onclick="togglePreview()" id="previewBtn">👁 Preview</button>
+    </h3>
+    <div class="split">
+      <textarea id="editorArea" placeholder="Paste or write the HTML for this file. Only the rendered result is shown in the project view." spellcheck="false"></textarea>
+      <iframe id="editorPreview"></iframe>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('editorModal')">Cancel</button>
+      <button class="btn primary" onclick="saveEditor()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- theme modal -->
+<div class="overlay" id="themeModal">
+  <div class="modal">
+    <h3>Project theme</h3>
+    <label style="display:block;font-size:.78rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Presets</label>
+    <div class="preset-row" id="presetRow"></div>
+    <div class="color-row"><label>Background</label><input type="color" data-k="bg"></div>
+    <div class="color-row"><label>Panels / sidebar</label><input type="color" data-k="panel"></div>
+    <div class="color-row"><label>Content area</label><input type="color" data-k="content"></div>
+    <div class="color-row"><label>Text</label><input type="color" data-k="text"></div>
+    <div class="color-row"><label>Muted text</label><input type="color" data-k="muted"></div>
+    <div class="color-row"><label>Accent</label><input type="color" data-k="accent"></div>
+    <div class="color-row"><label>Borders</label><input type="color" data-k="border"></div>
+    <div class="modal-actions">
+      <button class="btn primary" onclick="closeModal('themeModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- move modal -->
+<div class="overlay" id="moveModal">
+  <div class="modal">
+    <h3 id="moveTitle">Move to…</h3>
+    <div class="move-tree" id="moveTree"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('moveModal')">Cancel</button>
+      <button class="btn primary" onclick="confirmMove()">Move here</button>
+    </div>
+  </div>
+</div>
+
+<!-- import choice modal -->
+<div class="overlay" id="importChoiceModal">
+  <div class="modal">
+    <h3 id="importChoiceTitle">Import into project</h3>
+    <p id="importChoiceText" style="color:var(--muted);font-size:.88rem;line-height:1.5;margin-bottom:8px"></p>
+    <div class="modal-actions" style="flex-wrap:wrap">
+      <button class="btn" onclick="closeModal('importChoiceModal')">Cancel</button>
+      <button class="btn" onclick="applyImport('merge')">➕ Merge into project</button>
+      <button class="btn primary" onclick="applyImport('replace')">♻ Replace project</button>
+    </div>
+  </div>
+</div>
+
+<!-- user manual modal -->
+<div class="overlay" id="manualModal">
+  <div class="modal" style="max-width:640px">
+    <h3>📖 User manual</h3>
+    <div class="manual">
+
+      <h4>What is this?</h4>
+      <p>Second Brain is a personal workspace that lives entirely in your browser. You organize <b>projects</b>, and inside each project a tree of <b>folders</b> and <b>files</b>. Every file holds a piece of HTML that gets rendered for you.</p>
+
+      <h4>Projects (this screen)</h4>
+      <ul>
+        <li><b>+ New project</b> creates a project. Click a card to open it.</li>
+        <li>The <b>⋯</b> on a project card lets you open, rename, export or delete it.</li>
+      </ul>
+
+      <h4>The tree (left sidebar)</h4>
+      <ul>
+        <li><b>Click a file</b> → its HTML is rendered full-size on the right.</li>
+        <li><b>Click a folder</b> → the right side renders <i>everything inside it</i>: each file becomes a block, and each subfolder becomes its own block containing its files (and its subfolders, recursively).</li>
+        <li>The <b>▸ / ▾ caret</b> only expands or collapses a folder in the tree — it doesn't change the selection.</li>
+        <li>The <b>⋯ menu</b> on any item: new file / new subfolder (folders), edit HTML and status (files), rename, move, reorder, delete.</li>
+        <li>The <b>dot</b> next to a file is its status — click it to cycle: <i>to&nbsp;do → in&nbsp;progress → done</i>.</li>
+      </ul>
+
+      <h4>Creating files &amp; folders — where do they go?</h4>
+      <ul>
+        <li>The <b>+ Folder</b> and <b>+ File</b> buttons at the bottom of the sidebar create inside the <b>currently selected folder</b>.</li>
+        <li>If nothing is selected (or a file is selected), they are created at the <b>project root</b>.</li>
+        <li>To create inside a specific folder regardless of selection, use that folder's <b>⋯ menu → + New file / + New subfolder</b>.</li>
+        <li>Placed something in the wrong spot? Use <b>⋯ → Move…</b> to relocate it anywhere in the tree.</li>
+      </ul>
+
+      <h4>Editing file content</h4>
+      <ul>
+        <li>Open a file and press <b>✏️ Edit HTML</b> (or ⋯ → Edit HTML). Paste or write any HTML; <b>👁 Preview</b> shows the result before saving.</li>
+        <li>Files render in a sandboxed frame, so scripts inside your HTML run safely per file. Drag the bottom edge of a rendered block to resize it.</li>
+      </ul>
+
+      <h4>Themes</h4>
+      <p><b>🎨 Theme</b> (inside a project) sets that project's colors — pick a preset or tune each color individually.</p>
+
+      <h4>Saving, backup &amp; AI</h4>
+      <ul>
+        <li>Everything saves automatically to <b>this browser's local storage</b>. It never leaves your machine — but clearing browser data (or switching browser/device) loses it, so export regularly.</li>
+        <li><b>💾 Export all</b> downloads the whole workspace as JSON; <b>💾 Export</b> inside a project downloads just that project. <b>📂 Import JSON</b> loads them back (merge or replace).</li>
+        <li><b>🤖 Copy for AI</b> copies the whole project as JSON so you can paste it to an AI assistant for help with your content.</li>
+      </ul>
+
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" onclick="closeModal('manualModal')">Got it</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= DATA ================= */
+const LS_KEY='secondBrainWorkspace';
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+const THEME_PRESETS=[
+  {name:'GRIDly (dark red)',bg:'#121214',panel:'#1a1a1e',content:'#222227',text:'#e1e1e6',muted:'#a4a4a4',accent:'#e50914',border:'#2e2e35'},
+  {name:'Midnight blue',bg:'#0d1220',panel:'#131a2c',content:'#182136',text:'#dde4f2',muted:'#8b96ad',accent:'#3b82f6',border:'#26314a'},
+  {name:'Forest',bg:'#0f1512',panel:'#141d18',content:'#1a2620',text:'#dfe9e2',muted:'#93a89b',accent:'#34c07a',border:'#26362d'},
+  {name:'Paper (light)',bg:'#f5f4f0',panel:'#ffffff',content:'#faf9f6',text:'#25231f',muted:'#6f6a60',accent:'#c2571f',border:'#e0ddd4'},
+  {name:'Violet',bg:'#141020',panel:'#1b1530',content:'#231c3e',text:'#e6e0f5',muted:'#a79cc7',accent:'#9d5cf5',border:'#332a52'},
+];
+const defaultTheme=()=>({...THEME_PRESETS[0]});
+let ws=load();
+let currentProjectId=null, currentViewId=null;
+let ctxTarget=null, moveTarget=null, moveDest=undefined, editingFileId=null, promptCb=null;
+
+function load(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){const d=JSON.parse(raw); if(d&&Array.isArray(d.projects))return d;}
+  }catch(e){}
+  return {version:2,projects:[]};
+}
+function save(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify(ws));}
+  catch(e){toast('⚠ Could not save locally (storage full?). Export your JSON!');}
+}
+function proj(){return ws.projects.find(p=>p.id===currentProjectId);}
+
+/* -------- tree helpers -------- */
+function walk(nodes,fn,parent=null,path=[]){
+  for(const n of nodes){
+    if(fn(n,parent,path)===false)return false;
+    if(n.type==='folder'&&walk(n.children,fn,n,[...path,n])===false)return false;
+  }
+  return true;
+}
+function findNode(id,nodes){
+  let res=null;
+  walk(nodes,(n,parent,path)=>{ if(n.id===id){res={node:n,parent,path};return false;} });
+  return res;
+}
+function removeNode(id,nodes){
+  const i=nodes.findIndex(n=>n.id===id);
+  if(i>-1)return nodes.splice(i,1)[0];
+  for(const n of nodes)if(n.type==='folder'){const r=removeNode(id,n.children);if(r)return r;}
+  return null;
+}
+function isDescendant(maybeChildId,folderNode){
+  let found=false;
+  walk(folderNode.children,n=>{if(n.id===maybeChildId){found=true;return false;}});
+  return found;
+}
+function collectFiles(node,path,out){
+  if(node.type==='file'){out.push({file:node,path});return;}
+  for(const c of node.children)collectFiles(c,[...path,node.name],out);
+}
+function countFiles(nodes){let c=0;walk(nodes,n=>{if(n.type==='file')c++;});return c;}
+
+/* ================= HUB ================= */
+function renderHub(){
+  const grid=document.getElementById('projGrid');
+  grid.innerHTML='';
+  if(!ws.projects.length){
+    grid.innerHTML='<div class="empty-hub" style="grid-column:1/-1">No projects yet.<br>Create one, or import a JSON backup.</div>';
+    return;
+  }
+  ws.projects.forEach(p=>{
+    const files=countFiles(p.tree);
+    const done=(()=>{let d=0;walk(p.tree,n=>{if(n.type==='file'&&n.status==='done')d++;});return d;})();
+    const card=document.createElement('div');
+    card.className='proj-card';
+    card.style.setProperty('--pc',p.theme.accent);
+    card.onclick=()=>openProject(p.id);
+    card.innerHTML=`<h3></h3>
+      <div class="meta">${files} file${files===1?'':'s'} · ${done} done<br>Edited ${new Date(p.updated||Date.now()).toLocaleDateString()}</div>
+      <span class="dots" onclick="event.stopPropagation();projMenu(event,'${p.id}')">⋯</span>`;
+    card.querySelector('h3').textContent=p.name;
+    grid.appendChild(card);
+  });
+}
+function newProject(){
+  askText('New project name',name=>{
+    const p={id:uid(),name,theme:defaultTheme(),tree:[],updated:Date.now()};
+    ws.projects.push(p);save();renderHub();openProject(p.id);
+  });
+}
+function projMenu(e,id){
+  showCtx(e,[
+    ['Open',()=>openProject(id)],
+    ['Rename',()=>askText('Rename project',n=>{const p=ws.projects.find(x=>x.id===id);p.name=n;p.updated=Date.now();save();renderHub();},ws.projects.find(x=>x.id===id).name)],
+    ['Export this project',()=>exportProject(id)],
+    ['hr'],
+    ['Delete project',()=>{if(confirm('Delete this project and everything in it?')){ws.projects=ws.projects.filter(p=>p.id!==id);save();renderHub();}},true],
+  ]);
+}
+
+/* ================= PROJECT VIEW ================= */
+function openProject(id){
+  currentProjectId=id;currentViewId=null;
+  applyTheme(proj().theme);
+  document.getElementById('hub').style.display='none';
+  document.getElementById('project').classList.add('open');
+  document.getElementById('projName').textContent=proj().name;
+  clearView();renderTree();
+}
+function closeProject(){
+  currentProjectId=null;
+  document.getElementById('project').classList.remove('open');
+  document.getElementById('hub').style.display='flex';
+  applyTheme(defaultTheme());renderHub();
+}
+function applyTheme(t){
+  const r=document.documentElement.style;
+  for(const k of['bg','panel','content','text','muted','accent','border'])r.setProperty('--'+k,t[k]);
+}
+function touch(){const p=proj();if(p)p.updated=Date.now();save();}
+
+function renderTree(){
+  const el=document.getElementById('tree');
+  el.innerHTML='';
+  const build=(nodes,container)=>{
+    nodes.forEach(n=>{
+      const wrap=document.createElement('div');wrap.className='node';
+      const row=document.createElement('div');
+      row.className='node-row'+(n.id===currentViewId?' active':'');
+      if(n.type==='folder'){
+        row.innerHTML=`<span class="caret">${n.open?'▾':'▸'}</span><span class="icon">📁</span><span class="nm"></span><span class="dots">⋯</span>`;
+        row.querySelector('.caret').onclick=e=>{e.stopPropagation();n.open=!n.open;save();renderTree();};
+        row.onclick=()=>viewNode(n.id);
+      }else{
+        row.innerHTML=`<span class="caret"></span><span class="icon">📄</span><span class="nm"></span><span class="status ${n.status||'todo'}" title="Click to change status"></span><span class="dots">⋯</span>`;
+        row.querySelector('.status').onclick=e=>{e.stopPropagation();cycleStatus(n);};
+        row.onclick=()=>viewNode(n.id);
+      }
+      row.querySelector('.nm').textContent=n.name;
+      row.querySelector('.dots').onclick=e=>{e.stopPropagation();nodeMenu(e,n);};
+      wrap.appendChild(row);
+      if(n.type==='folder'&&n.open){
+        const kids=document.createElement('div');kids.className='node-kids';
+        build(n.children,kids);wrap.appendChild(kids);
+      }
+      container.appendChild(wrap);
+    });
+  };
+  build(proj().tree,el);
+  if(!proj().tree.length)el.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:10px">Empty project. Add a folder or file below.</div>';
+}
+
+function cycleStatus(n){
+  const order=['todo','progress','done'];
+  n.status=order[(order.indexOf(n.status||'todo')+1)%3];
+  touch();renderTree();
+  if(currentViewId)viewNode(currentViewId,true);
+}
+
+function nodeMenu(e,n){
+  ctxTarget=n;
+  const items=[];
+  if(n.type==='folder'){
+    items.push(['+ New file',()=>createNode(n.id,'file')]);
+    items.push(['+ New subfolder',()=>createNode(n.id,'folder')]);
+    items.push(['hr']);
+  }else{
+    items.push(['✏️ Edit HTML',()=>openEditor(n.id)]);
+    items.push(['Status: to do',()=>setStatus(n,'todo')]);
+    items.push(['Status: in progress',()=>setStatus(n,'progress')]);
+    items.push(['Status: done',()=>setStatus(n,'done')]);
+    items.push(['hr']);
+  }
+  items.push(['Rename',()=>askText('Rename',v=>{n.name=v;touch();renderTree();if(currentViewId)viewNode(currentViewId,true);},n.name)]);
+  items.push(['Move…',()=>openMove(n)]);
+  items.push(['Move up',()=>shift(n,-1)]);
+  items.push(['Move down',()=>shift(n,1)]);
+  items.push(['hr']);
+  items.push(['Delete',()=>{
+    if(confirm(`Delete "${n.name}"${n.type==='folder'?' and everything inside it':''}?`)){
+      removeNode(n.id,proj().tree);
+      if(currentViewId===n.id)clearView();
+      else if(currentViewId)viewNode(currentViewId,true);
+      touch();renderTree();
+    }
+  },true]);
+  showCtx(e,items);
+}
+function setStatus(n,s){n.status=s;touch();renderTree();if(currentViewId)viewNode(currentViewId,true);}
+function shift(n,dir){
+  const info=findNode(n.id,proj().tree);
+  const arr=info.parent?info.parent.children:proj().tree;
+  const i=arr.indexOf(n),j=i+dir;
+  if(j<0||j>=arr.length)return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+  touch();renderTree();
+  if(currentViewId)viewNode(currentViewId,true);
+}
+
+function createAtSelection(type){
+  let parentId=null;
+  if(currentViewId){
+    const info=findNode(currentViewId,proj().tree);
+    if(info&&info.node.type==='folder')parentId=info.node.id;
+  }
+  createNode(parentId,type);
+}
+function createNode(parentId,type){
+  askText(type==='folder'?'New folder name':'New file name',name=>{
+    const node=type==='folder'
+      ?{id:uid(),type:'folder',name,open:true,children:[]}
+      :{id:uid(),type:'file',name,status:'todo',content:''};
+    if(parentId){
+      const info=findNode(parentId,proj().tree);
+      info.node.children.push(node);info.node.open=true;
+    }else proj().tree.push(node);
+    touch();renderTree();
+    if(currentViewId)viewNode(currentViewId,true);
+    if(type==='file')openEditor(node.id);
+  });
+}
+
+/* ================= RENDER VIEW ================= */
+function clearView(){
+  currentViewId=null;
+  document.getElementById('contentHead').style.display='none';
+  document.getElementById('contentBody').innerHTML='<div class="placeholder">Select a file to render it,<br>or a folder to render everything inside it.</div>';
+}
+function statusPill(s){s=s||'todo';const lbl={todo:'To do',progress:'In progress',done:'Done'}[s];return `<span class="status-pill ${s}">${lbl}</span>`;}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function fileBlock(file,standalone){
+  const block=document.createElement('div');block.className='render-block';
+  if(!standalone){
+    const title=document.createElement('div');title.className='render-title';
+    title.innerHTML=`<span class="icon">📄</span><b>${esc(file.name)}</b>${statusPill(file.status)}<button class="btn small" style="margin-left:auto" onclick="openEditor('${file.id}')">✏️ Edit</button>`;
+    block.appendChild(title);
+  }
+  const fr=document.createElement('iframe');
+  fr.setAttribute('sandbox','allow-scripts');
+  if(standalone)fr.style.height='calc(100vh - 180px)';
+  fr.srcdoc=file.content||'<body style="font-family:sans-serif;color:#888;padding:20px">Empty file — use Edit HTML to add content.</body>';
+  block.appendChild(fr);
+  return block;
+}
+function folderBlock(folder){
+  const block=document.createElement('div');block.className='folder-block';
+  const title=document.createElement('div');title.className='folder-block-title';
+  title.innerHTML=`<span>📁</span><b>${esc(folder.name)}</b><span class="fb-count">${countFiles(folder.children)} file${countFiles(folder.children)===1?'':'s'}</span>`;
+  block.appendChild(title);
+  const body=document.createElement('div');body.className='folder-block-body';
+  if(!folder.children.length){
+    body.innerHTML='<div class="fb-empty">Empty folder</div>';
+  }else{
+    folder.children.forEach(c=>body.appendChild(c.type==='folder'?folderBlock(c):fileBlock(c,false)));
+  }
+  block.appendChild(body);
+  return block;
+}
+
+function viewNode(id,keepScroll){
+  const info=findNode(id,proj().tree);
+  if(!info)return clearView();
+  currentViewId=id;
+  const n=info.node;
+  const head=document.getElementById('contentHead');
+  const body=document.getElementById('contentBody');
+  const scroll=keepScroll?body.scrollTop:0;
+  head.style.display='flex';
+  document.getElementById('viewTitle').textContent=n.name;
+  document.getElementById('viewCrumb').textContent=[proj().name,...info.path.map(p=>p.name)].join(' / ');
+  document.getElementById('editBtn').style.display=n.type==='file'?'':'none';
+  document.getElementById('viewStatus').innerHTML=n.type==='file'?statusPill(n.status):'';
+  body.innerHTML='';
+  if(n.type==='file'){
+    body.appendChild(fileBlock(n,true));
+  }else if(!n.children.length){
+    body.innerHTML='<div class="placeholder">This folder is empty.<br>Use the ⋯ menu on the folder to add files or subfolders.</div>';
+  }else{
+    n.children.forEach(c=>body.appendChild(c.type==='folder'?folderBlock(c):fileBlock(c,false)));
+  }
+  body.scrollTop=scroll;
+  renderTree();
+}
+
+/* ================= EDITOR ================= */
+function openEditor(fileId){
+  const info=findNode(fileId,proj().tree);
+  if(!info||info.node.type!=='file')return;
+  editingFileId=fileId;
+  document.getElementById('editorTitle').childNodes[0].textContent='Edit HTML — '+info.node.name+' ';
+  document.getElementById('editorArea').value=info.node.content||'';
+  document.getElementById('editorModal').classList.remove('previewing');
+  openModal('editorModal');
+  document.getElementById('editorArea').focus();
+}
+function togglePreview(){
+  const m=document.getElementById('editorModal');
+  m.classList.toggle('previewing');
+  if(m.classList.contains('previewing'))
+    document.getElementById('editorPreview').srcdoc=document.getElementById('editorArea').value;
+}
+function saveEditor(){
+  const info=findNode(editingFileId,proj().tree);
+  if(info)info.node.content=document.getElementById('editorArea').value;
+  touch();closeModal('editorModal');
+  viewNode(editingFileId,true);
+}
+
+/* ================= MOVE ================= */
+function openMove(n){
+  moveTarget=n;moveDest=undefined;
+  document.getElementById('moveTitle').textContent=`Move "${n.name}" to…`;
+  const tree=document.getElementById('moveTree');
+  tree.innerHTML='';
+  const addOpt=(label,destId,depth,disabled)=>{
+    const d=document.createElement('div');
+    d.className='move-opt'+(disabled?' disabled':'');
+    d.style.paddingLeft=(10+depth*16)+'px';
+    d.textContent=label;
+    d.onclick=()=>{moveDest=destId;tree.querySelectorAll('.move-opt').forEach(x=>x.classList.remove('selected'));d.classList.add('selected');};
+    tree.appendChild(d);
+  };
+  addOpt('🏠 Project root',null,0,false);
+  const rec=(nodes,depth)=>{
+    nodes.forEach(f=>{
+      if(f.type!=='folder')return;
+      const disabled=f.id===n.id||(n.type==='folder'&&isDescendant(f.id,n));
+      addOpt('📁 '+f.name,f.id,depth,disabled);
+      if(!disabled)rec(f.children,depth+1);
+    });
+  };
+  rec(proj().tree,1);
+  openModal('moveModal');
+}
+function confirmMove(){
+  if(moveDest===undefined){toast('Pick a destination first');return;}
+  const node=removeNode(moveTarget.id,proj().tree);
+  if(moveDest===null)proj().tree.push(node);
+  else{const info=findNode(moveDest,proj().tree);info.node.children.push(node);info.node.open=true;}
+  touch();closeModal('moveModal');renderTree();
+  if(currentViewId)viewNode(currentViewId,true);
+}
+
+/* ================= THEME ================= */
+function openTheme(){
+  const t=proj().theme;
+  document.querySelectorAll('#themeModal input[type=color]').forEach(inp=>{
+    inp.value=t[inp.dataset.k];
+    inp.oninput=()=>{t[inp.dataset.k]=inp.value;applyTheme(t);touch();renderHubSilently();};
+  });
+  const row=document.getElementById('presetRow');
+  row.innerHTML='';
+  THEME_PRESETS.forEach(p=>{
+    const b=document.createElement('div');
+    b.className='preset';b.title=p.name;
+    b.style.background=`linear-gradient(135deg,${p.bg} 50%,${p.accent} 50%)`;
+    b.onclick=()=>{Object.assign(t,{bg:p.bg,panel:p.panel,content:p.content,text:p.text,muted:p.muted,accent:p.accent,border:p.border});applyTheme(t);touch();openTheme();};
+    row.appendChild(b);
+  });
+  openModal('themeModal');
+}
+function renderHubSilently(){/* hub re-renders on close; nothing needed live */}
+
+/* ================= IMPORT / EXPORT ================= */
+function download(name,obj){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function stamp(){
+  const d=new Date(),p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`;
+}
+function exportWorkspace(){download('second-brain-workspace_'+stamp()+'.json',ws);toast('Workspace exported');}
+function exportProject(id){
+  const p=ws.projects.find(x=>x.id===id);
+  download(p.name.replace(/[^\w.-]+/g,'_')+'_'+stamp()+'.json',{version:2,type:'project',project:p});
+  toast('Project exported');
+}
+function importProjectFile(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{importIntoProject(JSON.parse(e.target.result));}
+    catch(err){alert('Could not read that JSON file: '+err.message);}
+    ev.target.value='';
+  };
+  r.readAsText(f);
+}
+let pendingImport=null;
+function reId(nodes){
+  nodes.forEach(n=>{n.id=uid();if(n.type==='folder'&&Array.isArray(n.children))reId(n.children);});
+  return nodes;
+}
+function importIntoProject(d){
+  const p=proj();
+  let incoming=null;
+  if(d&&d.type==='project'&&d.project)incoming=d.project;
+  else if(d&&Array.isArray(d.projects)){
+    if(d.projects.length===1)incoming=d.projects[0];
+    else{alert('This file contains a whole workspace with several projects. Import it from the Projects screen instead.');return;}
+  }
+  else if(Array.isArray(d)&&d.every(x=>x&&Array.isArray(x.files))){
+    incoming={name:p.name,theme:p.theme,tree:d.map(cat=>({id:uid(),type:'folder',name:cat.name,open:true,
+      children:cat.files.map(f=>({id:uid(),type:'file',name:f.name,status:'todo',content:f.content||''}))}))};
+  }
+  else{alert('Unrecognized JSON structure.');return;}
+  pendingImport=incoming;
+  document.getElementById('importChoiceTitle').textContent=`Import "${incoming.name}"`;
+  document.getElementById('importChoiceText').textContent=
+    `Merge adds its ${countFiles(incoming.tree||[])} file(s) to "${p.name}" and keeps everything you have. Replace wipes "${p.name}" and loads the file instead.`;
+  openModal('importChoiceModal');
+}
+function applyImport(mode){
+  const p=proj(),incoming=pendingImport;
+  pendingImport=null;
+  closeModal('importChoiceModal');
+  if(!incoming)return;
+  const tree=reId(JSON.parse(JSON.stringify(incoming.tree||[])));
+  if(mode==='replace'){
+    p.name=incoming.name;
+    p.theme=incoming.theme||p.theme;
+    p.tree=tree;
+    document.getElementById('projName').textContent=p.name;
+    applyTheme(p.theme);
+    toast('Project replaced');
+  }else{
+    p.tree.push(...tree);
+    toast('Merged into project');
+  }
+  p.updated=Date.now();
+  save();
+  clearView();renderTree();
+}
+function importFile(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{importData(JSON.parse(e.target.result));}
+    catch(err){alert('Could not read that JSON file: '+err.message);}
+    ev.target.value='';
+  };
+  r.readAsText(f);
+}
+function importData(d){
+  // v2 workspace
+  if(d&&Array.isArray(d.projects)){
+    if(ws.projects.length&&!confirm('Replace your current workspace with the imported one?\n(Cancel = add its projects next to your current ones instead)')){
+      d.projects.forEach(p=>{p.id=uid();ws.projects.push(p);});
+    }else ws=d;
+  }
+  // v2 single project
+  else if(d&&d.type==='project'&&d.project){
+    d.project.id=uid();ws.projects.push(d.project);
+  }
+  // legacy flat format: [{name, files:[{name,content}]}]
+  else if(Array.isArray(d)&&d.every(x=>x&&Array.isArray(x.files))){
+    const tree=d.map(cat=>({id:uid(),type:'folder',name:cat.name,open:true,
+      children:cat.files.map(f=>({id:uid(),type:'file',name:f.name,status:'todo',content:f.content||''}))}));
+    ws.projects.push({id:uid(),name:'Imported brain',theme:defaultTheme(),tree,updated:Date.now()});
+    toast('Old-format brain imported as a new project');
+  }
+  else{alert('Unrecognized JSON structure.');return;}
+  save();renderHub();
+  if(currentProjectId&&!ws.projects.find(p=>p.id===currentProjectId))closeProject();
+}
+function copyForAI(){
+  const p=proj();
+  const payload={project:p.name,exported:new Date().toISOString(),
+    note:'Second Brain project export. Folders contain children; files contain HTML content and a status (todo/progress/done).',
+    tree:p.tree};
+  const txt=JSON.stringify(payload,null,2);
+  navigator.clipboard.writeText(txt).then(()=>toast('Project JSON copied — paste it to your AI'))
+    .catch(()=>{download(p.name+'-for-ai.json',payload);toast('Clipboard blocked — downloaded instead');});
+}
+
+/* ================= UI PLUMBING ================= */
+function showCtx(e,items){
+  const m=document.getElementById('ctx');
+  m.innerHTML='';
+  items.forEach(([label,fn,danger])=>{
+    if(label==='hr'){m.appendChild(document.createElement('hr'));return;}
+    const d=document.createElement('div');
+    d.textContent=label;if(danger)d.className='danger';
+    d.onclick=()=>{m.style.display='none';fn();};
+    m.appendChild(d);
+  });
+  m.style.display='block';
+  const x=Math.min(e.clientX,window.innerWidth-200);
+  const y=Math.min(e.clientY,window.innerHeight-m.offsetHeight-10);
+  m.style.left=x+'px';m.style.top=y+'px';
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.ctx'))document.getElementById('ctx').style.display='none';
+});
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function askText(title,cb,initial=''){
+  document.getElementById('promptTitle').textContent=title;
+  const inp=document.getElementById('promptInput');
+  inp.value=initial;promptCb=cb;
+  openModal('promptModal');inp.focus();inp.select();
+}
+function promptOk(){
+  const v=document.getElementById('promptInput').value.trim();
+  if(!v)return;
+  closeModal('promptModal');
+  const cb=promptCb;promptCb=null;cb(v);
+}
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('mousedown',e=>{if(e.target===o&&o.id!=='editorModal')closeModal(o.id);});
+});
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display='none',2600);
+}
+
+renderHub();
+</script>
+</body>
+</html>
