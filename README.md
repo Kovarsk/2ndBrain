@@ -22,11 +22,13 @@ A privacy-focused, local-first knowledge management workspace that runs entirely
 
 Because this application is a self-contained Single Page Application (SPA), deployment takes seconds.
 
-### Option A: Local Execution
+### Option A: just use the hosted page on Github
+
+### Option B: Local Execution
 1. Clone the repository: `git clone https://github.com`
 2. Open `index.html` directly in any modern desktop web browser.
 
-### Option B: Cloud Hosting (GitHub Pages)
+### Option C: Cloud Hosting (GitHub Pages)
 1. Go to your GitHub repository **Settings** tab.
 2. Navigate to **Pages** in the left sidebar.
 3. Under **Build and deployment**, set the source to **Deploy from a branch**.
