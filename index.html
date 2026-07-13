@@ -166,6 +166,56 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
   #project.open{flex-direction:column}
   .sidebar{width:100%!important;min-width:0!important;max-height:45vh}
 }
+
+/* ---------- CHIPS / TAGS ---------- */
+.chips{display:inline-flex;gap:5px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;padding:2px 8px;border-radius:10px;border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,.04);white-space:nowrap}
+.chip.click{cursor:pointer}
+.chip.click:hover{border-color:var(--accent);color:var(--text)}
+.chip.due-over{background:#e5484d;border-color:#e5484d;color:#fff}
+.chip.deps-open{border-color:var(--st-progress,#e5a93b);color:var(--st-progress,#e5a93b)}
+.status-pill.info{background:#3b82f6;color:#fff}
+
+/* ---------- NEW FILE KIND TOGGLE ---------- */
+.kind-row{display:flex;gap:0}
+.kind-row .btn{flex:1;border-radius:0}
+.kind-row .btn:first-child{border-radius:6px 0 0 6px}
+.kind-row .btn:last-child{border-radius:0 6px 6px 0;border-left:none}
+.kind-row .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ---------- DETAILS CHECKLISTS ---------- */
+.check-list{border:1px solid var(--border);border-radius:8px;max-height:170px;overflow-y:auto;padding:6px}
+.check-list label{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:.85rem;color:var(--text);text-transform:none;letter-spacing:0;cursor:pointer;margin:0}
+.check-list label:hover{background:rgba(255,255,255,.05)}
+.check-list small{color:var(--muted)}
+.check-list .empty{color:var(--muted);font-size:.82rem;font-style:italic;padding:6px 8px}
+
+/* ---------- MIRRORS ---------- */
+.mirror-block{margin-bottom:16px;border:1px dashed var(--accent);border-radius:8px;background:color-mix(in srgb,var(--panel) 55%,transparent)}
+.mirror-head{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:.8rem;color:var(--muted);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.mirror-head b{color:var(--text)}
+.mirror-body{padding:12px 12px 0 12px}
+.mirror-missing{padding:14px;color:var(--st-progress,#e5a93b);font-size:.85rem}
+
+/* ---------- URL PREVIEW ---------- */
+.urlbar{display:flex;align-items:center;gap:8px;padding:6px 14px;font-size:.78rem;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg)}
+.urlbar a{color:var(--accent);text-decoration:none;flex-shrink:0}
+.urlbar a:hover{text-decoration:underline}
+.urlbar .u{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* ---------- MINIMIZED SIDEBAR ---------- */
+.minicrumb{display:none;padding:2px 4px 6px;font-size:.85rem}
+.minicrumb div{padding:4px 6px;border-radius:5px;color:var(--muted);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minicrumb div:hover{background:rgba(255,255,255,.06);color:#fff}
+.minicrumb div.here{color:var(--text);cursor:default}
+.minicrumb div.here:hover{background:none}
+#project.mini .sidebar{width:auto!important;min-width:0!important;max-width:250px}
+#project.mini .sidebar .lbl,#project.mini #projName,#project.mini .tree,#project.mini .tree-footer{display:none}
+#project.mini .side-head{border-bottom:none}
+#project.mini .minicrumb{display:block}
+@media (max-width:720px){
+  #project.mini .sidebar{max-width:none;max-height:none}
+}
 </style>
 </head>
 <body>
@@ -196,27 +246,31 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
   <div class="sidebar">
     <div class="side-head">
       <div class="backrow">
-        <button class="btn small" onclick="closeProject()">← Projects</button>
+        <button class="btn small" onclick="closeProject()">←<span class="lbl"> Projects</span></button>
         <h2 id="projName"></h2>
+        <button class="btn small" id="miniBtn" onclick="toggleMini()" title="Minimize the menu">«</button>
       </div>
       <div class="side-tools">
-        <button class="btn small" onclick="openTheme()">🎨 Theme</button>
-        <button class="btn small" onclick="copyForAI()">🤖 Copy for AI</button>
-        <button class="btn small" onclick="projFileInput.click()">📂 Import</button>
-        <button class="btn small" onclick="exportProject(currentProjectId)">💾 Export</button>
+        <button class="btn small" onclick="openTheme()" title="Theme">🎨<span class="lbl"> Theme</span></button>
+        <button class="btn small" onclick="copyForAI()" title="Copy for AI">🤖<span class="lbl"> Copy for AI</span></button>
+        <button class="btn small" onclick="projFileInput.click()" title="Import">📂<span class="lbl"> Import</span></button>
+        <button class="btn small" onclick="exportProject(currentProjectId)" title="Export">💾<span class="lbl"> Export</span></button>
         <input type="file" id="projFileInput" accept=".json,application/json" style="display:none" onchange="importProjectFile(event)">
       </div>
+      <div class="minicrumb" id="miniCrumb"></div>
     </div>
     <div class="tree" id="tree"></div>
     <div class="tree-footer">
       <button class="btn small" style="flex:1" onclick="createAtSelection('folder')">+ Folder</button>
       <button class="btn small" style="flex:1" onclick="createAtSelection('file')">+ File</button>
+      <button class="btn small" onclick="mirrorAtSelection()" title="Mirror a folder or file from another project (live view)">🪞</button>
     </div>
   </div>
   <div class="content">
     <div class="content-head" id="contentHead" style="display:none">
       <h2 id="viewTitle"></h2>
       <span id="viewStatus"></span>
+      <span id="viewChips" class="chips"></span>
       <button class="btn small" id="editBtn" onclick="openEditor(currentViewId)">✏️ Edit</button>
       <div class="crumb" id="viewCrumb"></div>
     </div>
@@ -276,6 +330,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <div class="color-row"><label>Muted text</label><input type="color" data-k="muted"></div>
     <div class="color-row"><label>Accent</label><input type="color" data-k="accent"></div>
     <div class="color-row"><label>Borders</label><input type="color" data-k="border"></div>
+    <div class="color-row"><label>Internal links (in files)</label><input type="color" data-k="linkColor"></div>
     <div class="color-row" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px"><label>Status: to do</label><input type="color" data-k="stTodo"></div>
     <div class="color-row"><label>Status: in progress</label><input type="color" data-k="stProgress"></div>
     <div class="color-row"><label>Status: done</label><input type="color" data-k="stDone"></div>
@@ -357,7 +412,7 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
         <li>In the rendered view, the <b>▾ caret</b> on a block collapses/expands it, and <b>clicking the name</b> of a file or folder jumps to it. Folder blocks show the file count plus three status dots with how many files inside are <i>to do / in progress / done</i>.</li>
         <li>The <b>▸ / ▾ caret</b> only expands or collapses a folder in the tree — it doesn't change the selection.</li>
         <li>The <b>⋯ menu</b> on any item: new file / new subfolder (folders), edit HTML and status (files), rename, move, reorder, delete.</li>
-        <li>The <b>dot</b> next to a file is its status — click it to cycle: <i>to&nbsp;do → in&nbsp;progress → done</i>.</li>
+        <li>The <b>dot</b> next to a task is its status — click it to cycle: <i>to&nbsp;do → in&nbsp;progress → done</i>. Information files (📘) have no dot.</li>
       </ul>
 
       <h4>Creating files &amp; folders — where do they go?</h4>
@@ -376,8 +431,29 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
         <li>Files render in a sandboxed frame, so scripts inside your HTML run safely per file. Drag the bottom edge of a rendered block to resize it.</li>
       </ul>
 
+      <h4>Tasks, information files &amp; details</h4>
+      <ul>
+        <li>Every file is either a <b>task</b> or an <b>information file</b> — you choose when creating it, and can convert later via the ⋯ menu. Only tasks have a status; info files (📘) are reference material and are <b>ignored in all progress counts</b>.</li>
+        <li><b>⋯ → Details…</b> on a file: add <b>tags</b> to any file; on tasks also set a <b>deadline</b> (shown as a chip, red when overdue), pick <b>dependencies</b> (other tasks it needs) and connect <b>related information files</b>. Click the ⛓ or 📘 chip on a rendered task to jump to its dependencies or linked info.</li>
+      </ul>
+
+      <h4>Internal links</h4>
+      <p>In the editor, select some text and press <b>🧠</b> to turn it into a link to any file or folder in the project. Clicking it in the rendered view jumps straight there. Links are standard blue by default — change the color under 🎨 Theme → "Internal links".</p>
+
+      <h4>Link previews</h4>
+      <p>If a file's content is <b>just a URL</b> (nothing else), the page itself is embedded as a live preview, with an <b>open ↗</b> link above it. Some sites refuse to be embedded and stay blank — use open ↗ for those.</p>
+
+      <h4>Mirrors — live views across projects</h4>
+      <ul>
+        <li>Use the <b>🪞</b> button at the bottom of the sidebar (or a folder's <b>⋯ → Mirror from a project…</b>) to embed a live view of a folder or file from another project.</li>
+        <li>Mirrors always show the <b>current</b> content of the source: edit at the source (the <b>↗ Source</b> button jumps there) and the mirror updates automatically. Deleting a mirror never touches the source.</li>
+      </ul>
+
+      <h4>Minimizing the menu</h4>
+      <p>The <b>«</b> button next to the project name shrinks the sidebar to icons only, plus a mini-path with the last two folders and the current file — handy on mobile. Press <b>»</b> to expand it again.</p>
+
       <h4>Themes</h4>
-      <p><b>🎨 Theme</b> (inside a project) sets that project's colors — pick a preset or tune each color individually, including the three status colors (to do / in progress / done). On the Projects screen, each card's top border shows overall progress: red (nothing done) → yellow (halfway) → green (all done).</p>
+      <p><b>🎨 Theme</b> (inside a project) sets that project's colors — pick a preset or tune each color individually, including the three status colors (to do / in progress / done). On the Projects screen, each card's top border shows overall progress: red (nothing done) → yellow (halfway) → green (all done). Projects without any tasks get a <b>blue</b> border, and card counts only look at tasks — information files are ignored.</p>
 
       <h4>Saving, backup &amp; AI</h4>
       <ul>
@@ -418,6 +494,73 @@ input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('mergeProjModal')">Cancel</button>
       <button class="btn primary" onclick="confirmMergeProjects()">Merge</button>
+    </div>
+  </div>
+</div>
+
+<!-- new file modal -->
+<div class="overlay" id="newFileModal">
+  <div class="modal">
+    <h3>New file</h3>
+    <div class="row"><label>Name</label><input type="text" id="nfName" onkeydown="if(event.key==='Enter')confirmNewFile()"></div>
+    <div class="row"><label>Type</label>
+      <div class="kind-row">
+        <button class="btn" id="nfKindTask" onclick="setNfKind('task')">✅ Task</button>
+        <button class="btn" id="nfKindInfo" onclick="setNfKind('info')">📘 Information</button>
+      </div>
+      <p style="color:var(--muted);font-size:.75rem;margin-top:6px;line-height:1.5">Tasks have a status, and can get a deadline, dependencies and linked info files. Information files are reference material and are ignored in all progress counts.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('newFileModal')">Cancel</button>
+      <button class="btn primary" onclick="confirmNewFile()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- file details modal -->
+<div class="overlay" id="detailsModal">
+  <div class="modal" style="max-width:520px">
+    <h3 id="detailsTitle">Details</h3>
+    <div class="row"><label>Tags (comma separated)</label><input type="text" id="detTags" placeholder="e.g. urgent, ideas, v2"></div>
+    <div id="detTaskRows">
+      <div class="row"><label>Deadline</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" id="detDeadline" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;font-family:inherit">
+          <button class="btn small" onclick="document.getElementById('detDeadline').value=''">Clear</button>
+        </div>
+      </div>
+      <div class="row"><label>Depends on (other tasks)</label><div class="check-list" id="detDeps"></div></div>
+      <div class="row"><label>Related information files</label><div class="check-list" id="detInfos"></div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('detailsModal')">Cancel</button>
+      <button class="btn primary" onclick="saveDetails()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- mirror picker modal -->
+<div class="overlay" id="mirrorModal">
+  <div class="modal">
+    <h3>🪞 Mirror a folder or file</h3>
+    <p style="color:var(--muted);font-size:.82rem;line-height:1.5;margin-bottom:10px">A mirror is a live view of a folder or file from another project. Changes made at the source appear here automatically. Editing always happens at the source (use ↗ Source).</p>
+    <div class="row"><label>Project</label><select id="mirrorProj" style="width:100%" onchange="renderMirrorTree()"></select></div>
+    <div class="row"><label>Folder or file to mirror</label><div class="move-tree" id="mirrorTree"></div></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('mirrorModal')">Cancel</button>
+      <button class="btn primary" onclick="confirmMirror()">Add mirror</button>
+    </div>
+  </div>
+</div>
+
+<!-- internal link picker modal -->
+<div class="overlay" id="linkPickModal">
+  <div class="modal">
+    <h3>🔗 Link to a file or folder</h3>
+    <div class="move-tree" id="linkTree"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('linkPickModal')">Cancel</button>
+      <button class="btn primary" onclick="confirmLinkPick()">Insert link</button>
     </div>
   </div>
 </div>
@@ -485,8 +628,40 @@ function collectFiles(node,path,out){
 function countFiles(nodes){let c=0;walk(nodes,n=>{if(n.type==='file')c++;});return c;}
 function countStatuses(nodes){
   const c={todo:0,progress:0,done:0};
-  walk(nodes,n=>{if(n.type==='file')c[n.status||'todo']++;});
+  walk(nodes,n=>{if(isTask(n))c[n.status||'todo']++;});
   return c;
+}
+/* files are tasks by default; kind:'info' marks reference material */
+const isTask=n=>n.type==='file'&&n.kind!=='info';
+const isInfo=n=>n.type==='file'&&n.kind==='info';
+function findNodeGlobal(id){
+  for(const p of ws.projects){
+    const info=findNode(id,p.tree);
+    if(info)return {project:p,node:info.node,parent:info.parent,path:info.path};
+  }
+  return null;
+}
+function goProjectNode(pid,nid){
+  if(pid!==currentProjectId){
+    if(!ws.projects.find(x=>x.id===pid)){toast('That project no longer exists');return;}
+    openProject(pid);
+  }
+  viewNode(nid);
+}
+function urlOnly(f){
+  const c=(f.content||'').trim();
+  return /^https?:\/\/\S+$/i.test(c)?c:null;
+}
+function todayStr(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+function fmtDate(s){
+  const d=new Date(s+'T00:00:00');
+  return isNaN(d)?s:d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:d.getFullYear()===new Date().getFullYear()?undefined:'numeric'});
+}
+function resolveMirror(m){
+  const p=ws.projects.find(x=>x.id===m.srcProject);
+  if(!p)return null;
+  const info=findNode(m.srcNode,p.tree);
+  return info?{project:p,node:info.node,path:info.path}:null;
 }
 function statusCountsHtml(nodes){
   const c=countStatuses(nodes);
@@ -504,18 +679,17 @@ function renderHub(){
     return;
   }
   ws.projects.forEach(p=>{
-    const files=countFiles(p.tree);
-    const st=countStatuses(p.tree);
+    const st=countStatuses(p.tree);            // tasks only — information files are ignored
+    const tasks=st.todo+st.progress+st.done;
     const done=st.done;
-    // border color reflects progress: red (0% done) → yellow (50%) → green (100%)
-    const ratio=files?done/files:0;
-    const borderCol=`hsl(${Math.round(ratio*120)},75%,48%)`;
+    // border: blue when there are no tasks; otherwise progress red (0%) → yellow (50%) → green (100%)
+    const borderCol=tasks?`hsl(${Math.round((done/tasks)*120)},75%,48%)`:'#3b82f6';
     const card=document.createElement('div');
     card.className='proj-card';
     card.style.setProperty('--pc',borderCol);
     card.onclick=()=>openProject(p.id);
     card.innerHTML=`<h3></h3>
-      <div class="meta">${files} file${files===1?'':'s'} · ${done} done<br>${st.progress} in progress · ${st.todo} to do<br>Edited ${new Date(p.updated||Date.now()).toLocaleDateString()}</div>
+      <div class="meta">${tasks} task${tasks===1?'':'s'} · ${done} done<br>${st.progress} in progress · ${st.todo} to do<br>Edited ${new Date(p.updated||Date.now()).toLocaleDateString()}</div>
       <span class="dots" onclick="event.stopPropagation();projMenu(event,'${p.id}')">⋯</span>`;
     card.querySelector('h3').textContent=p.name;
     grid.appendChild(card);
@@ -575,12 +749,18 @@ function renderTree(){
         row.innerHTML=`<span class="caret">${n.open?'▾':'▸'}</span><span class="icon">📁</span><span class="nm"></span><span class="dots">⋯</span>`;
         row.querySelector('.caret').onclick=e=>{e.stopPropagation();n.open=!n.open;save();renderTree();};
         row.onclick=()=>viewNode(n.id);
+      }else if(n.type==='mirror'){
+        row.innerHTML=`<span class="caret"></span><span class="icon">🪞</span><span class="nm"></span><span class="dots">⋯</span>`;
+        row.onclick=()=>viewNode(n.id);
       }else{
-        row.innerHTML=`<span class="caret"></span><span class="icon">${n.format==='md'?'📝':'📄'}</span><span class="nm"></span><span class="status ${n.status||'todo'}" title="Click to change status"></span><span class="dots">⋯</span>`;
-        row.querySelector('.status').onclick=e=>{e.stopPropagation();cycleStatus(n);};
+        const icon=isInfo(n)?'📘':(n.format==='md'?'📝':'📄');
+        row.innerHTML=`<span class="caret"></span><span class="icon">${icon}</span><span class="nm"></span>${isInfo(n)?'':`<span class="status ${n.status||'todo'}" title="Click to change status"></span>`}<span class="dots">⋯</span>`;
+        if(!isInfo(n))row.querySelector('.status').onclick=e=>{e.stopPropagation();cycleStatus(n);};
         row.onclick=()=>viewNode(n.id);
       }
-      row.querySelector('.nm').textContent=n.name;
+      const res=n.type==='mirror'?resolveMirror(n):null;
+      row.querySelector('.nm').textContent=n.type==='mirror'?(res?res.node.name:'⚠ missing mirror'):n.name;
+      if(n.type==='mirror')row.title=res?`Live mirror from "${res.project.name}"`:'The mirrored source was deleted';
       row.querySelector('.dots').onclick=e=>{e.stopPropagation();nodeMenu(e,n);};
       wrap.appendChild(row);
       if(n.type==='folder'&&n.open){
@@ -592,6 +772,7 @@ function renderTree(){
   };
   build(proj().tree,el);
   if(!proj().tree.length)el.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:10px">Empty project. Add a folder or file below.</div>';
+  renderMiniCrumb();
 }
 
 function cycleStatus(n){
@@ -607,21 +788,35 @@ function nodeMenu(e,n){
   if(n.type==='folder'){
     items.push(['+ New file',()=>createNode(n.id,'file')]);
     items.push(['+ New subfolder',()=>createNode(n.id,'folder')]);
+    items.push(['🪞 Mirror from a project…',()=>openMirrorPicker(n.id)]);
     items.push(['hr']);
-  }else{
+  }else if(n.type==='file'){
     items.push(['✏️ Edit content',()=>openEditor(n.id)]);
-    items.push(['Status: to do',()=>setStatus(n,'todo')]);
-    items.push(['Status: in progress',()=>setStatus(n,'progress')]);
-    items.push(['Status: done',()=>setStatus(n,'done')]);
+    items.push([isTask(n)?'🏷 Details (tags, deadline, links)…':'🏷 Details (tags)…',()=>openDetails(n.id)]);
+    if(isTask(n)){
+      items.push(['Status: to do',()=>setStatus(n,'todo')]);
+      items.push(['Status: in progress',()=>setStatus(n,'progress')]);
+      items.push(['Status: done',()=>setStatus(n,'done')]);
+      items.push(['📘 Convert to information file',()=>setKind(n,'info')]);
+    }else{
+      items.push(['✅ Convert to task',()=>setKind(n,'task')]);
+    }
+    items.push(['hr']);
+  }else{ /* mirror */
+    const res=resolveMirror(n);
+    if(res)items.push(['↗ Go to source',()=>goProjectNode(res.project.id,res.node.id)]);
     items.push(['hr']);
   }
-  items.push(['Rename',()=>askText('Rename',v=>{n.name=v;touch();renderTree();if(currentViewId)viewNode(currentViewId,true);},n.name)]);
+  if(n.type!=='mirror')items.push(['Rename',()=>askText('Rename',v=>{n.name=v;touch();renderTree();if(currentViewId)viewNode(currentViewId,true);},n.name)]);
   items.push(['Move…',()=>openMove(n)]);
   items.push(['Move up',()=>shift(n,-1)]);
   items.push(['Move down',()=>shift(n,1)]);
   items.push(['hr']);
   items.push(['Delete',()=>{
-    if(confirm(`Delete "${n.name}"${n.type==='folder'?' and everything inside it':''}?`)){
+    const res=n.type==='mirror'?resolveMirror(n):null;
+    const disp=n.type==='mirror'?(res?res.node.name:'this mirror'):n.name;
+    const extra=n.type==='folder'?' and everything inside it':(n.type==='mirror'?' (only the mirror — the source stays untouched)':'');
+    if(confirm(`Delete "${disp}"${extra}?`)){
       removeNode(n.id,proj().tree);
       if(currentViewId===n.id)clearView();
       else if(currentViewId)viewNode(currentViewId,true);
@@ -629,6 +824,12 @@ function nodeMenu(e,n){
     }
   },true]);
   showCtx(e,items);
+}
+function setKind(n,k){
+  n.kind=k;
+  if(k==='task'&&!n.status)n.status='todo';
+  touch();renderTree();
+  if(currentViewId)viewNode(currentViewId,true);
 }
 function setStatus(n,s){n.status=s;touch();renderTree();if(currentViewId)viewNode(currentViewId,true);}
 function shift(n,dir){
@@ -642,26 +843,50 @@ function shift(n,dir){
 }
 
 function createAtSelection(type){
-  let parentId=null;
+  createNode(selectedFolderId(),type);
+}
+function selectedFolderId(){
   if(currentViewId){
     const info=findNode(currentViewId,proj().tree);
-    if(info&&info.node.type==='folder')parentId=info.node.id;
+    if(info&&info.node.type==='folder')return info.node.id;
   }
-  createNode(parentId,type);
+  return null;
+}
+function mirrorAtSelection(){openMirrorPicker(selectedFolderId());}
+function insertNewNode(node,parentId){
+  if(parentId){
+    const info=findNode(parentId,proj().tree);
+    info.node.children.push(node);info.node.open=true;
+  }else proj().tree.push(node);
+  touch();renderTree();
+  if(currentViewId)viewNode(currentViewId,true);
 }
 function createNode(parentId,type){
-  askText(type==='folder'?'New folder name':'New file name',name=>{
-    const node=type==='folder'
-      ?{id:uid(),type:'folder',name,open:true,children:[]}
-      :{id:uid(),type:'file',name,status:'todo',content:'',format:/\.md$/i.test(name)?'md':'html'};
-    if(parentId){
-      const info=findNode(parentId,proj().tree);
-      info.node.children.push(node);info.node.open=true;
-    }else proj().tree.push(node);
-    touch();renderTree();
-    if(currentViewId)viewNode(currentViewId,true);
-    if(type==='file')openEditor(node.id);
+  if(type==='file'){openNewFile(parentId);return;}
+  askText('New folder name',name=>{
+    insertNewNode({id:uid(),type:'folder',name,open:true,children:[]},parentId);
   });
+}
+/* ---- new file: choose task or info ---- */
+let nfParentId=null,nfKind='task';
+function openNewFile(parentId){
+  nfParentId=parentId||null;nfKind='task';refreshNfKind();
+  const inp=document.getElementById('nfName');inp.value='';
+  openModal('newFileModal');inp.focus();
+}
+function setNfKind(k){nfKind=k;refreshNfKind();}
+function refreshNfKind(){
+  document.getElementById('nfKindTask').classList.toggle('on',nfKind==='task');
+  document.getElementById('nfKindInfo').classList.toggle('on',nfKind==='info');
+}
+function confirmNewFile(){
+  const name=document.getElementById('nfName').value.trim();
+  if(!name)return;
+  closeModal('newFileModal');
+  const node={id:uid(),type:'file',name,kind:nfKind,content:'',format:/\.md$/i.test(name)?'md':'html'};
+  if(nfKind==='task')node.status='todo';
+  insertNewNode(node,nfParentId);
+  openEditor(node.id);
 }
 
 /* ================= RENDER VIEW ================= */
@@ -669,8 +894,43 @@ function clearView(){
   currentViewId=null;
   document.getElementById('contentHead').style.display='none';
   document.getElementById('contentBody').innerHTML='<div class="placeholder">Select a file to render it,<br>or a folder to render everything inside it.</div>';
+  if(currentProjectId)renderMiniCrumb();
 }
 function statusPill(s){s=s||'todo';const lbl={todo:'To do',progress:'In progress',done:'Done'}[s];return `<span class="status-pill ${s}">${lbl}</span>`;}
+function pillFor(f){return isInfo(f)?'<span class="status-pill info">Info</span>':statusPill(f.status);}
+function chipsHtml(f,pid){
+  pid=pid||currentProjectId;
+  const p=ws.projects.find(x=>x.id===pid);
+  const tree=p?p.tree:[];
+  let h='';
+  (f.tags||[]).forEach(t=>h+=`<span class="chip" title="Tag">🏷 ${esc(t)}</span>`);
+  if(isTask(f)){
+    if(f.deadline){
+      const over=f.status!=='done'&&f.deadline<todayStr();
+      h+=`<span class="chip${over?' due-over':''}" title="Deadline">⏰ ${esc(fmtDate(f.deadline))}${over?' — overdue':''}</span>`;
+    }
+    const deps=(f.deps||[]).map(id=>findNode(id,tree)).filter(Boolean).map(x=>x.node);
+    if(deps.length){
+      const open=deps.filter(d=>d.status!=='done').length;
+      h+=`<span class="chip click${open?' deps-open':''}" onclick="showRefMenu(event,'${pid}','${f.id}','deps')" title="Depends on: ${esc(deps.map(d=>d.name).join(', '))} — click to jump">⛓ ${deps.length-open}/${deps.length} done</span>`;
+    }
+    const infos=(f.infoRefs||[]).map(id=>findNode(id,tree)).filter(Boolean).map(x=>x.node);
+    if(infos.length)h+=`<span class="chip click" onclick="showRefMenu(event,'${pid}','${f.id}','infoRefs')" title="Related info: ${esc(infos.map(d=>d.name).join(', '))} — click to jump">📘 ${infos.length}</span>`;
+  }
+  return h;
+}
+function showRefMenu(e,pid,fileId,key){
+  e.stopPropagation();
+  const p=ws.projects.find(x=>x.id===pid);if(!p)return;
+  const info=findNode(fileId,p.tree);if(!info)return;
+  const items=[];
+  (info.node[key]||[]).forEach(id=>{
+    const t=findNode(id,p.tree);
+    if(t)items.push([(key==='deps'?(t.node.status==='done'?'✅ ':'⬜ '):'📘 ')+t.node.name,()=>goProjectNode(pid,id)]);
+  });
+  if(!items.length)items.push(['(linked items were deleted)',()=>{}]);
+  showCtx(e,items);
+}
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 /* ================= MARKDOWN ================= */
@@ -787,42 +1047,110 @@ li.task{list-style:none;margin-left:-20px}
 table{border-collapse:collapse;margin:.8em 0;width:100%}
 th,td{border:1px solid #ddd9cd;padding:6px 10px;text-align:left}th{background:#f0efe9}
 hr{border:none;border-top:1px solid #ddd9cd;margin:1.4em 0}`;
+/* injected into every rendered doc: colors #brain: links and forwards clicks to the app */
+const BRAIN_LINK_SNIPPET=()=>{
+  const t=(proj()&&proj().theme)||{};
+  const col=t.linkColor||'#2563eb';
+  return `<style>a[href^="#brain:"]{color:${col}}</style>`+
+    `<scr`+`ipt>document.addEventListener('click',function(e){var el=e.target;while(el&&el.tagName!=='A')el=el.parentElement;if(!el)return;var h=el.getAttribute('href')||'';if(h.lastIndexOf('#brain:',0)===0){e.preventDefault();parent.postMessage({brainLink:h.slice(7)},'*');}},true);</scr`+`ipt>`;
+};
 function renderDoc(file){
   if(!file.content)return '';
-  if(file.format==='md')return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${MD_CSS}</style></head><body>${mdToHtml(file.content)}</body></html>`;
-  return file.content;
+  if(file.format==='md')return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${MD_CSS}</style></head><body>${mdToHtml(file.content)}${BRAIN_LINK_SNIPPET()}</body></html>`;
+  return file.content+BRAIN_LINK_SNIPPET();
 }
+function followBrainLink(id){
+  if(currentProjectId&&findNode(id,proj().tree)){viewNode(id);return;}
+  const g=findNodeGlobal(id);
+  if(g)goProjectNode(g.project.id,id);
+  else toast('Link target not found (was it deleted?)');
+}
+window.addEventListener('message',e=>{
+  const d=e.data;
+  if(d&&typeof d==='object'&&typeof d.brainLink==='string')followBrainLink(d.brainLink);
+});
 
-function fileBlock(file,standalone){
+function fileBlock(file,standalone,ro){
+  const pid=ro?ro.pid:currentProjectId;
   const block=document.createElement('div');block.className='render-block';
+  const url=urlOnly(file);
   if(!standalone){
     if(file.rc)block.classList.add('collapsed');
     const title=document.createElement('div');title.className='render-title';
-    title.innerHTML=`<span class="rb-caret">${file.rc?'▸':'▾'}</span><span class="icon">${file.format==='md'?'📝':'📄'}</span><b class="rb-name" title="Open this file">${esc(file.name)}</b>${statusPill(file.status)}<button class="btn small" style="margin-left:auto" onclick="openEditor('${file.id}')">✏️ Edit</button>`;
+    const icon=isInfo(file)?'📘':(file.format==='md'?'📝':'📄');
+    const action=ro
+      ?`<button class="btn small" style="margin-left:auto" onclick="goProjectNode('${pid}','${file.id}')" title="Open in its own project (to edit it there)">↗ Source</button>`
+      :`<button class="btn small" style="margin-left:auto" onclick="openEditor('${file.id}')">✏️ Edit</button>`;
+    title.innerHTML=`<span class="rb-caret">${file.rc?'▸':'▾'}</span><span class="icon">${icon}</span><b class="rb-name" title="Open this file">${esc(file.name)}</b>${pillFor(file)}<span class="chips">${chipsHtml(file,pid)}</span>${action}`;
     title.querySelector('.rb-caret').onclick=()=>{file.rc=!file.rc;save();block.classList.toggle('collapsed',file.rc);title.querySelector('.rb-caret').textContent=file.rc?'▸':'▾';};
-    title.querySelector('.rb-name').onclick=()=>viewNode(file.id);
+    title.querySelector('.rb-name').onclick=()=>ro?goProjectNode(pid,file.id):viewNode(file.id);
     block.appendChild(title);
   }
+  if(url){
+    const bar=document.createElement('div');bar.className='urlbar';
+    bar.innerHTML=`<span>🌐</span><span class="u">${esc(url)}</span><a href="${esc(url)}" target="_blank" rel="noopener">open ↗</a><span title="Some sites refuse to be embedded and stay blank — use open ↗ for those." style="cursor:help">ⓘ</span>`;
+    block.appendChild(bar);
+  }
   const fr=document.createElement('iframe');
-  fr.setAttribute('sandbox','allow-scripts');
   if(standalone)fr.style.height='calc(100vh - 180px)';
-  fr.srcdoc=renderDoc(file)||'<body style="font-family:sans-serif;color:#888;padding:20px">Empty file — use ✏️ Edit to add content.</body>';
+  if(url){
+    fr.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups');
+    fr.src=url;
+  }else{
+    fr.setAttribute('sandbox','allow-scripts');
+    fr.srcdoc=renderDoc(file)||'<body style="font-family:sans-serif;color:#888;padding:20px">Empty file — use ✏️ Edit to add content.</body>';
+  }
   block.appendChild(fr);
   return block;
 }
-function folderBlock(folder){
+function childBlock(c,ro,seen){
+  if(c.type==='folder')return folderBlock(c,ro,seen);
+  if(c.type==='mirror')return mirrorBlock(c,seen);
+  return fileBlock(c,false,ro);
+}
+function folderBlock(folder,ro,seen){
   const block=document.createElement('div');block.className='folder-block';
   if(folder.rc)block.classList.add('collapsed');
   const title=document.createElement('div');title.className='folder-block-title';
   title.innerHTML=`<span class="rb-caret">${folder.rc?'▸':'▾'}</span><span>📁</span><b class="rb-name" title="Open this folder">${esc(folder.name)}</b><span class="rb-right"><span class="fb-count">${countFiles(folder.children)} file${countFiles(folder.children)===1?'':'s'}</span>${statusCountsHtml(folder.children)}</span>`;
   title.querySelector('.rb-caret').onclick=()=>{folder.rc=!folder.rc;save();block.classList.toggle('collapsed',folder.rc);title.querySelector('.rb-caret').textContent=folder.rc?'▸':'▾';};
-  title.querySelector('.rb-name').onclick=()=>viewNode(folder.id);
+  title.querySelector('.rb-name').onclick=()=>ro?goProjectNode(ro.pid,folder.id):viewNode(folder.id);
   block.appendChild(title);
   const body=document.createElement('div');body.className='folder-block-body';
   if(!folder.children.length){
     body.innerHTML='<div class="fb-empty">Empty folder</div>';
   }else{
-    folder.children.forEach(c=>body.appendChild(c.type==='folder'?folderBlock(c):fileBlock(c,false)));
+    folder.children.forEach(c=>body.appendChild(childBlock(c,ro,seen)));
+  }
+  block.appendChild(body);
+  return block;
+}
+function mirrorBlock(m,seen){
+  seen=seen||[];
+  const block=document.createElement('div');block.className='mirror-block';
+  const head=document.createElement('div');head.className='mirror-head';
+  const res=resolveMirror(m);
+  if(!res){
+    head.innerHTML='<span>🪞</span><b>Missing mirror</b>';
+    block.appendChild(head);
+    const b=document.createElement('div');b.className='mirror-missing';
+    b.textContent='⚠ The mirrored folder/file (or its project) was deleted. You can remove this mirror via its ⋯ menu in the tree.';
+    block.appendChild(b);
+    return block;
+  }
+  const key=m.srcProject+':'+m.srcNode;
+  head.innerHTML=`<span>🪞</span><b>${esc(res.node.name||'')}</b><span>· live from “${esc(res.project.name)}”${res.path.length?' / '+esc(res.path.map(x=>x.name).join(' / ')):''}</span><button class="btn small" style="margin-left:auto" onclick="goProjectNode('${res.project.id}','${res.node.id}')">↗ Source</button>`;
+  block.appendChild(head);
+  const body=document.createElement('div');body.className='mirror-body';
+  if(seen.indexOf(key)>-1){
+    body.innerHTML='<div class="mirror-missing">⟲ Circular mirror — this item is already shown further up.</div>';
+  }else{
+    const s2=seen.concat([key]);
+    const ro={pid:res.project.id};
+    if(res.node.type==='mirror')body.appendChild(mirrorBlock(res.node,s2));
+    else if(res.node.type==='file')body.appendChild(fileBlock(res.node,false,ro));
+    else if(!res.node.children.length)body.innerHTML='<div class="fb-empty">Empty folder</div>';
+    else res.node.children.forEach(c=>body.appendChild(childBlock(c,ro,s2)));
   }
   block.appendChild(body);
   return block;
@@ -837,17 +1165,25 @@ function viewNode(id,keepScroll){
   const body=document.getElementById('contentBody');
   const scroll=keepScroll?body.scrollTop:0;
   head.style.display='flex';
-  document.getElementById('viewTitle').textContent=n.name;
+  let title=n.name;
+  if(n.type==='mirror'){
+    const r=resolveMirror(n);
+    title='🪞 '+(r?r.node.name:'Missing mirror');
+  }
+  document.getElementById('viewTitle').textContent=title;
   document.getElementById('viewCrumb').textContent=[proj().name,...info.path.map(p=>p.name)].join(' / ');
   document.getElementById('editBtn').style.display=n.type==='file'?'':'none';
-  document.getElementById('viewStatus').innerHTML=n.type==='file'?statusPill(n.status):'';
+  document.getElementById('viewStatus').innerHTML=n.type==='file'?pillFor(n):'';
+  document.getElementById('viewChips').innerHTML=n.type==='file'?chipsHtml(n,currentProjectId):'';
   body.innerHTML='';
   if(n.type==='file'){
     body.appendChild(fileBlock(n,true));
+  }else if(n.type==='mirror'){
+    body.appendChild(mirrorBlock(n,[]));
   }else if(!n.children.length){
     body.innerHTML='<div class="placeholder">This folder is empty.<br>Use the ⋯ menu on the folder to add files or subfolders.</div>';
   }else{
-    n.children.forEach(c=>body.appendChild(c.type==='folder'?folderBlock(c):fileBlock(c,false)));
+    n.children.forEach(c=>body.appendChild(childBlock(c,null,[])));
   }
   body.scrollTop=scroll;
   renderTree();
@@ -880,8 +1216,14 @@ function refreshFmtButtons(){
 function edArea(){return document.getElementById('editorArea');}
 function edRefreshPreview(){
   const m=document.getElementById('editorModal');
-  if(m.classList.contains('previewing'))
-    document.getElementById('editorPreview').srcdoc=renderDoc({content:edArea().value,format:editingFormat});
+  if(m.classList.contains('previewing'))applyEditorPreview();
+}
+function applyEditorPreview(){
+  const fr=document.getElementById('editorPreview');
+  const fake={content:edArea().value,format:editingFormat};
+  const url=urlOnly(fake);
+  if(url){fr.removeAttribute('srcdoc');fr.src=url;}
+  else{fr.removeAttribute('src');fr.srcdoc=renderDoc(fake);}
 }
 function edWrap(before,after,ph){
   const ta=edArea(),s=ta.selectionStart,e=ta.selectionEnd,v=ta.value;
@@ -974,6 +1316,7 @@ function renderToolbar(){
     btn('☑ Task','Task checkbox',()=>edLine('- [ ] ','Task'));
     sep();
     btn('🔗','Link',()=>edWrap('[','](https://example.com)','link text'));
+    btn('🧠','Internal link — to a file or folder in this project',()=>openLinkPick());
     btn('🖼','Image',()=>edBlock('![description](https://example.com/image.jpg)'));
     btn('❝','Quote',()=>edLine('> ','Quote'));
     btn('{ }','Code block — select code first to wrap it',()=>edCode());
@@ -1003,6 +1346,7 @@ function renderToolbar(){
     btn('☑ Task','Checkbox',()=>edBlock('<label><input type="checkbox"> Task</label><br>'));
     sep();
     btn('🔗','Link',()=>edWrap('<a href="https://example.com" target="_blank">','</a>','link text'));
+    btn('🧠','Internal link — to a file or folder in this project',()=>openLinkPick());
     btn('🖼','Image',()=>edBlock('<img src="https://example.com/image.jpg" alt="description" style="max-width:100%">'));
     btn('❝','Quote',()=>edWrap('<blockquote>','</blockquote>','Quote'));
     btn('{ }','Code block — select code first to wrap it (special characters are escaped)',()=>edCode());
@@ -1013,15 +1357,12 @@ function renderToolbar(){
 function setEditorFormat(fmt){
   editingFormat=fmt;
   refreshFmtButtons();
-  const m=document.getElementById('editorModal');
-  if(m.classList.contains('previewing'))
-    document.getElementById('editorPreview').srcdoc=renderDoc({content:document.getElementById('editorArea').value,format:editingFormat});
+  edRefreshPreview();
 }
 function togglePreview(){
   const m=document.getElementById('editorModal');
   m.classList.toggle('previewing');
-  if(m.classList.contains('previewing'))
-    document.getElementById('editorPreview').srcdoc=renderDoc({content:document.getElementById('editorArea').value,format:editingFormat});
+  if(m.classList.contains('previewing'))applyEditorPreview();
 }
 function saveEditor(){
   const info=findNode(editingFileId,proj().tree);
@@ -1030,10 +1371,137 @@ function saveEditor(){
   viewNode(editingFileId,true);
 }
 
+/* ================= DETAILS (tags, deadline, links) ================= */
+let detailsFileId=null;
+function openDetails(fileId){
+  const info=findNode(fileId,proj().tree);
+  if(!info||info.node.type!=='file')return;
+  detailsFileId=fileId;
+  const f=info.node;
+  document.getElementById('detailsTitle').textContent='Details — '+f.name;
+  document.getElementById('detTags').value=(f.tags||[]).join(', ');
+  document.getElementById('detTaskRows').style.display=isTask(f)?'':'none';
+  if(isTask(f)){
+    document.getElementById('detDeadline').value=f.deadline||'';
+    const deps=document.getElementById('detDeps');deps.innerHTML='';
+    const infos=document.getElementById('detInfos');infos.innerHTML='';
+    walk(proj().tree,(n,parent,path)=>{
+      if(n.type!=='file'||n.id===f.id)return;
+      const lbl=document.createElement('label');
+      const cb=document.createElement('input');cb.type='checkbox';cb.value=n.id;
+      cb.dataset.k=isTask(n)?'deps':'infoRefs';
+      cb.checked=((isTask(n)?f.deps:f.infoRefs)||[]).indexOf(n.id)>-1;
+      lbl.appendChild(cb);
+      lbl.append((isTask(n)?'':'📘 ')+n.name+' ');
+      const pth=path.map(p=>p.name).join(' / ');
+      if(pth){const s=document.createElement('small');s.textContent='('+pth+')';lbl.appendChild(s);}
+      (isTask(n)?deps:infos).appendChild(lbl);
+    });
+    if(!deps.children.length)deps.innerHTML='<div class="empty">No other tasks in this project yet.</div>';
+    if(!infos.children.length)infos.innerHTML='<div class="empty">No information files in this project yet.</div>';
+  }
+  openModal('detailsModal');
+}
+function saveDetails(){
+  const info=findNode(detailsFileId,proj().tree);
+  if(info){
+    const f=info.node;
+    const tags=document.getElementById('detTags').value.split(',').map(s=>s.trim()).filter(Boolean);
+    if(tags.length)f.tags=tags;else delete f.tags;
+    if(isTask(f)){
+      const dl=document.getElementById('detDeadline').value;
+      if(dl)f.deadline=dl;else delete f.deadline;
+      const pick=k=>Array.from(document.querySelectorAll('#detailsModal input[data-k="'+k+'"]:checked')).map(c=>c.value);
+      const d=pick('deps'),ir=pick('infoRefs');
+      if(d.length)f.deps=d;else delete f.deps;
+      if(ir.length)f.infoRefs=ir;else delete f.infoRefs;
+    }
+  }
+  touch();closeModal('detailsModal');
+  renderTree();
+  if(currentViewId)viewNode(currentViewId,true);
+}
+
+/* ================= INTERNAL LINK PICKER ================= */
+let linkSel=null,linkPickTarget=null;
+function pickerTree(containerId,tree,onPick){
+  const cont=document.getElementById(containerId);
+  cont.innerHTML='';
+  const addOpt=(label,id,depth)=>{
+    const d=document.createElement('div');
+    d.className='move-opt';
+    d.style.paddingLeft=(10+depth*16)+'px';
+    d.textContent=label;
+    d.onclick=()=>{onPick(id);cont.querySelectorAll('.move-opt').forEach(x=>x.classList.remove('selected'));d.classList.add('selected');};
+    cont.appendChild(d);
+  };
+  const rec=(nodes,depth)=>{
+    nodes.forEach(n=>{
+      if(n.type==='folder'){addOpt('📁 '+n.name,n.id,depth);rec(n.children,depth+1);}
+      else if(n.type==='file')addOpt((isInfo(n)?'📘 ':(n.format==='md'?'📝 ':'📄 '))+n.name,n.id,depth);
+    });
+  };
+  rec(tree,0);
+  if(!cont.children.length)cont.innerHTML='<div class="move-opt disabled">Nothing here yet.</div>';
+}
+function openLinkPick(){
+  const ta=edArea();
+  linkSel={s:ta.selectionStart,e:ta.selectionEnd};
+  linkPickTarget=null;
+  pickerTree('linkTree',proj().tree,id=>linkPickTarget=id);
+  openModal('linkPickModal');
+}
+function confirmLinkPick(){
+  if(!linkPickTarget){toast('Pick a file or folder first');return;}
+  closeModal('linkPickModal');
+  const ta=edArea();
+  ta.setSelectionRange(linkSel.s,linkSel.e);
+  if(editingFormat==='md')edWrap('[','](#brain:'+linkPickTarget+')','link text');
+  else edWrap('<a href="#brain:'+linkPickTarget+'">','</a>','link text');
+}
+
+/* ================= MIRRORS (live views across projects) ================= */
+let mirrorParentId=null,mirrorSel=null;
+function openMirrorPicker(parentId){
+  mirrorParentId=parentId||null;
+  mirrorSel=null;
+  const sel=document.getElementById('mirrorProj');
+  sel.innerHTML='';
+  ws.projects.forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p.id;
+    o.textContent=p.name+(p.id===currentProjectId?' (this project)':'');
+    sel.appendChild(o);
+  });
+  const other=ws.projects.find(p=>p.id!==currentProjectId);
+  if(other)sel.value=other.id;
+  renderMirrorTree();
+  openModal('mirrorModal');
+}
+function renderMirrorTree(){
+  mirrorSel=null;
+  const p=ws.projects.find(x=>x.id===document.getElementById('mirrorProj').value);
+  pickerTree('mirrorTree',p?p.tree:[],id=>mirrorSel=id);
+}
+function confirmMirror(){
+  if(!mirrorSel){toast('Pick a folder or file to mirror');return;}
+  const pid=document.getElementById('mirrorProj').value;
+  if(pid===currentProjectId&&mirrorParentId){
+    const src=findNode(mirrorSel,proj().tree);
+    if(src&&src.node.type==='folder'&&(src.node.id===mirrorParentId||isDescendant(mirrorParentId,src.node))){
+      toast('That would mirror a folder into itself');return;
+    }
+  }
+  insertNewNode({id:uid(),type:'mirror',srcProject:pid,srcNode:mirrorSel},mirrorParentId);
+  closeModal('mirrorModal');
+  toast('Mirror added — it always shows the live source');
+}
+
 /* ================= MOVE ================= */
 function openMove(n){
   moveTarget=n;moveDest=undefined;
-  document.getElementById('moveTitle').textContent=`Move "${n.name}" to…`;
+  const mdisp=n.type==='mirror'?('🪞 '+((resolveMirror(n)||{node:{name:'mirror'}}).node.name)):n.name;
+  document.getElementById('moveTitle').textContent=`Move "${mdisp}" to…`;
   const tree=document.getElementById('moveTree');
   tree.innerHTML='';
   const addOpt=(label,destId,depth,disabled)=>{
@@ -1069,8 +1537,9 @@ function confirmMove(){
 function openTheme(){
   const t=proj().theme;
   document.querySelectorAll('#themeModal input[type=color]').forEach(inp=>{
-    inp.value=t[inp.dataset.k]||STATUS_DEFAULTS[inp.dataset.k]||'#000000';
+    inp.value=t[inp.dataset.k]||STATUS_DEFAULTS[inp.dataset.k]||(inp.dataset.k==='linkColor'?'#2563eb':'#000000');
     inp.oninput=()=>{t[inp.dataset.k]=inp.value;applyTheme(t);touch();renderHubSilently();};
+    inp.onchange=()=>{if(inp.dataset.k==='linkColor'&&currentViewId)viewNode(currentViewId,true);};
   });
   const rng=document.getElementById('sidewRange'),val=document.getElementById('sidewVal');
   rng.value=t.sidew||300;
@@ -1122,8 +1591,23 @@ function importProjectFile(ev){
   r.readAsText(f);
 }
 let pendingImport=null;
-function reId(nodes){
-  nodes.forEach(n=>{n.id=uid();if(n.type==='folder'&&Array.isArray(n.children))reId(n.children);});
+function reId(nodes,extMap){
+  const map=extMap||{};
+  const p1=ns=>ns.forEach(n=>{
+    const old=n.id;n.id=uid();if(old)map[old]=n.id;
+    if(n.type==='folder'&&Array.isArray(n.children))p1(n.children);
+  });
+  const p2=ns=>ns.forEach(n=>{
+    if(n.type==='folder'&&Array.isArray(n.children)){p2(n.children);return;}
+    if(n.type==='mirror'){if(map[n.srcNode])n.srcNode=map[n.srcNode];return;}
+    if(n.type==='file'){
+      if(Array.isArray(n.deps))n.deps=n.deps.map(x=>map[x]||x);
+      if(Array.isArray(n.infoRefs))n.infoRefs=n.infoRefs.map(x=>map[x]||x);
+      if(typeof n.content==='string'&&n.content.indexOf('#brain:')>-1)
+        n.content=n.content.replace(/#brain:([A-Za-z0-9]+)/g,(m,x)=>'#brain:'+(map[x]||x));
+    }
+  });
+  p1(nodes);p2(nodes);
   return nodes;
 }
 function importIntoProject(d){
@@ -1149,7 +1633,12 @@ let mergeConflicts=[];
 function smartMergeTrees(existing,incoming,path,conflicts){
   let added=0;
   incoming.forEach(inc=>{
-    const match=existing.find(ex=>ex.type===inc.type&&ex.name.trim().toLowerCase()===inc.name.trim().toLowerCase());
+    if(inc.type==='mirror'){
+      // mirrors have no name — treat identical source references as the same mirror
+      if(!existing.some(ex=>ex.type==='mirror'&&ex.srcProject===inc.srcProject&&ex.srcNode===inc.srcNode))existing.push(inc);
+      return;
+    }
+    const match=existing.find(ex=>ex.type===inc.type&&(ex.name||'').trim().toLowerCase()===(inc.name||'').trim().toLowerCase());
     if(!match){
       existing.push(inc);// ids already re-generated by reId
       added+=inc.type==='file'?1:countFiles(inc.children);
@@ -1197,6 +1686,9 @@ function confirmConflicts(){
       c.existing.content=c.incoming.content;
       c.existing.format=c.incoming.format||c.existing.format||'html';
       c.existing.status=c.incoming.status||c.existing.status;
+      c.existing.kind=c.incoming.kind||c.existing.kind;
+      if(c.incoming.tags)c.existing.tags=c.incoming.tags;
+      if(c.incoming.deadline)c.existing.deadline=c.incoming.deadline;
       updated++;
     }
   });
@@ -1294,7 +1786,16 @@ function applyWsImport(mode){
     return;
   }
   if(mode==='merge'){
-    d.projects.forEach(p=>{p.id=uid();reId(p.tree||[]);ws.projects.push(p);});
+    const nodeMap={},pidMap={};
+    d.projects.forEach(p=>{const old=p.id;p.id=uid();if(old)pidMap[old]=p.id;});
+    d.projects.forEach(p=>reId(p.tree||[],nodeMap));
+    d.projects.forEach(p=>walk(p.tree||[],n=>{
+      if(n.type==='mirror'){
+        if(pidMap[n.srcProject])n.srcProject=pidMap[n.srcProject];
+        if(nodeMap[n.srcNode])n.srcNode=nodeMap[n.srcNode];
+      }
+    }));
+    d.projects.forEach(p=>ws.projects.push(p));
     save();renderHub();
     toast(`${d.projects.length} project(s) added`);
     return;
@@ -1378,7 +1879,7 @@ function confirmMergeProjects(){
 function copyForAI(){
   const p=proj();
   const payload={project:p.name,exported:new Date().toISOString(),
-    note:'Second Brain project export. Folders contain children; files have a format ("html" or "md"), content in that format, and a status (todo/progress/done).',
+    note:'Second Brain project export. Folders contain children. Files have kind "task" (default) or "info", format "html" or "md", content, optional tags[]; tasks may also have status (todo/progress/done), deadline (YYYY-MM-DD), deps[] (ids of prerequisite tasks) and infoRefs[] (ids of related info files). "mirror" nodes are live references (srcProject/srcNode) to a node in another project. Content may contain internal links of the form #brain:ID. A file whose content is only a URL is shown as an embedded page preview.',
     tree:p.tree};
   const txt=JSON.stringify(payload,null,2);
   navigator.clipboard.writeText(txt).then(()=>toast('Project JSON copied — paste it to your AI'))
@@ -1428,6 +1929,43 @@ function toast(msg){
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display='none',2600);
 }
 
+/* ================= MINIMIZED SIDEBAR ================= */
+function toggleMini(){
+  const on=document.getElementById('project').classList.toggle('mini');
+  const b=document.getElementById('miniBtn');
+  b.textContent=on?'»':'«';
+  b.title=on?'Expand the menu':'Minimize the menu';
+  try{localStorage.setItem('secondBrainMini',on?'1':'');}catch(e){}
+}
+function renderMiniCrumb(){
+  const el=document.getElementById('miniCrumb');
+  const p=proj();
+  if(!el||!p)return;
+  el.innerHTML='';
+  const add=(txt,fn,here)=>{
+    const d=document.createElement('div');
+    if(here)d.className='here';
+    d.textContent=txt;d.title=txt;
+    if(fn)d.onclick=fn;
+    el.appendChild(d);
+  };
+  const info=currentViewId?findNode(currentViewId,p.tree):null;
+  if(!info){add('🧠 '+p.name,null,true);return;}
+  info.path.slice(-2).forEach(f=>add('📁 '+f.name,()=>viewNode(f.id),false));
+  const n=info.node;
+  let disp;
+  if(n.type==='folder')disp='📁 '+n.name;
+  else if(n.type==='mirror'){const r=resolveMirror(n);disp='🪞 '+(r?r.node.name:'missing');}
+  else disp=(isInfo(n)?'📘 ':(n.format==='md'?'📝 ':'📄 '))+n.name;
+  add(disp,null,true);
+}
+try{
+  if(localStorage.getItem('secondBrainMini')){
+    document.getElementById('project').classList.add('mini');
+    const b=document.getElementById('miniBtn');
+    b.textContent='»';b.title='Expand the menu';
+  }
+}catch(e){}
 renderHub();
 </script>
 </body>
